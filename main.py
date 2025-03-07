@@ -11,13 +11,14 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        self.caracter_spritesheet = Spritessheet('sprt/guts-spr-full_noise1_scale.png')
+        self.caracter_spritesheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
         #terrenos
-        #self.terrain_spritesheet = Spritessheet
+        self.terrain_spritesheet = Spritesheet('sprt/terraintest.webp')
 
     def createTilemap(self):
         for i, row in enumerate(tilemap):
             for j, column in enumerate(row):
+                Ground(self, j, i)
                 if column == "B":
                     Block(self, j, i)
                 if column == "P":
