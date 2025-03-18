@@ -10,10 +10,10 @@ class Game:
         self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
         self.clock = pygame.time.Clock()
         self.running = True
-
-        self.caracter_spritesheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
+        self.character_spritesheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
         #terrenos
         self.terrain_spritesheet = Spritesheet('sprt/terraintest.webp')
+        self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
 
     def createTilemap(self):
         for i, row in enumerate(tilemap):
@@ -21,6 +21,8 @@ class Game:
                 Ground(self, j, i)
                 if column == "B":
                     Block(self, j, i)
+                if column == "E":
+                    enemy(self, j, i)
                 if column == "P":
                     Player(self, j, i)
 
