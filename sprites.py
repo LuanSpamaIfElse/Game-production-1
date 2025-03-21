@@ -16,11 +16,13 @@ class Spritesheet:
 
 
 class Player(pygame.sprite.Sprite):
+    
     def __init__(self, game, x, y):
         self.game = game
         self._layer = PLAYER_LAYER
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
+        self.alive = True  # Inicializa a variável alive corretamente
 
         # Posição inicial do jogador
         self.x = x * TILESIZES
@@ -76,7 +78,8 @@ class Player(pygame.sprite.Sprite):
 
     def update(self):
         self.movement()
-        
+        self.animate()
+        self.check_collision()  # Novo nome do método, não interferindo com o kill() original
 
         # Aplica o movimento
         self.rect.x += self.x_change
@@ -86,23 +89,39 @@ class Player(pygame.sprite.Sprite):
         self.rect.y += self.y_change
         self.collide_blocks('y')
         self.y = self.rect.y
-        self.animate()
+        
         # Reseta os valores de movimento após cada frame
         self.x_change = 0
         self.y_change = 0
 
+    def check_collision(self):  # Método renomeado de kill() para check_collision()
+        # Verifica colisão com inimigos
+        hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        if hits and self.alive:  # Apenas se o jogador ainda estiver vivo
+            self.alive = False  # O jogador morre
+            self.game.playing = False  # O jogo entra em estado de "Game Over"
+            # NÃO chame game_over() aqui, deixe o loop principal do jogo fazer isso
+
     def movement(self):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a]:
+            for sprite in self.game.all_sprites:
+                sprite.rect.x += PLAYER_SPEED
             self.x_change -= PLAYER_SPEED
             self.facing = 'left'
         if keys[pygame.K_d]:
+            for sprite in self.game.all_sprites:
+                sprite.rect.x -= PLAYER_SPEED
             self.x_change += PLAYER_SPEED
             self.facing = 'right'
         if keys[pygame.K_w]:
+            for sprite in self.game.all_sprites:
+                sprite.rect.y += PLAYER_SPEED
             self.y_change -= PLAYER_SPEED
             self.facing = 'up'
         if keys[pygame.K_s]:
+            for sprite in self.game.all_sprites:
+                sprite.rect.y -= PLAYER_SPEED
             self.y_change += PLAYER_SPEED
             self.facing = 'down'
 
@@ -138,7 +157,7 @@ class Ground(pygame.sprite.Sprite):
         self.height = TILESIZES
 
         # Carrega a imagem do terreno
-        self.image = self.game.terrain_spritesheet.get_sprite(15, 15, self.width, self.height)
+        self.image = self.game.terrain_spritesheet.get_sprite(300, 295, self.width, self.height)
 
         # Define o retângulo de colisão
         self.rect = self.image.get_rect()
@@ -216,6 +235,27 @@ class enemy(pygame.sprite.Sprite):
             self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
             self.image = self.animation_frames[self.facing][self.current_frame]
 
+class Plant(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = GROUND_LAYER  # Plantas devem estar no mesmo layer do solo
+        self.groups = self.game.all_sprites  # Apenas visível, sem colisão
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        # Posição da planta
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        # Define a aparência da planta
+        self.image = self.game.plant_spritesheet.get_sprite(350, 547, self.width, self.height)
+        self.image.set_colorkey(BLACK)  # Verde para representar plantas
+
+        # Define a posição no mapa
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
 
         
 
@@ -234,10 +274,39 @@ class Block(pygame.sprite.Sprite):
         self.height = TILESIZES
 
         # Define a aparência do bloco
-        self.image = pygame.Surface((self.width, self.height))
-        self.image.fill(BLUE)
+        self.image = self.game.plant_spritesheet.get_sprite(960, 448, self.width, self.height)
+        self.image.set_colorkey(BLACK)
 
         # Define o retângulo de colisão
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
+
+class Button:
+    def __init__(self, x ,y, width, height, fg, bg, content, fontsize):
+        self.font = pygame.font.SysFont('arial.ttf', fontsize)
+        self.content = content
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+
+        self.fg = fg
+        self.bg = bg
+        self.image = pygame.Surface((self.width, self.height))
+        self.image.fill(self.bg)
+        self.rect = self.image.get_rect()
+
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+        self.text = self.font.render(self.content, True, self.fg)
+        self.text_rect = self.text.get_rect(center=(self.width/2, self.height/2))
+        self.image.blit(self.text, self.text_rect)
+
+    def is_pressed(self, pos, pressed):
+        if self.rect.collidepoint(pos):
+            if pressed[0]:
+                return True
+            return False
+        return False
