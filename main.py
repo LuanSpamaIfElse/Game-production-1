@@ -17,6 +17,7 @@ class Game:
         #terrenos
         self.terrain_spritesheet = Spritesheet('sprt/img/terrain.png')
         self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
+        self.attack_spritsheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
         self.plant_spritesheet = Spritesheet('sprt/img/terrain.png')
         self.block_spritesheet = Spritesheet('sprt/img/terrain.png')
         self.intro_background = pygame.image.load('sprt/img/introbackground.png')
@@ -30,7 +31,7 @@ class Game:
                 if column == "E":
                     enemy(self, j, i)
                 if column == "P":
-                    Player(self, j, i)
+                    self.player = Player(self, j, i)
                 if column == "Q":
                     Plant(self, j, i)
     def new(self):
@@ -53,6 +54,17 @@ class Game:
                 self.playing = False
                 return  # Evita continuar processando eventos após sair
 
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    if self.player.facing == 'up': #cima
+                        Attack(self, self.player.rect.x, self.player.rect.y - 25)
+                    if self.player.facing == 'down':
+                        Attack(self, self.player.rect.x, self.player.rect.y + 25)
+                    if self.player.facing == 'right':
+                        Attack(self, self.player.rect.x + 25, self.player.rect.y)
+                    if self.player.facing == 'left': #esqd
+                        Attack(self, self.player.rect.x - 25, self.player.rect.y)
+                    #QUANTO MAIS BAIXO O VALOR, MAIS PROXIMO DO PLAYER
     def update(self):
         # Atualizações do game loop
         self.all_sprites.update()
@@ -72,52 +84,27 @@ class Game:
 
     def game_over(self):
         text = self.font.render('Game Over', True, WHITE)
-        text_rect = text.get_rect(center=(WIN_WIDTH / 2, WIN_HEIGHT / 2))
+        text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
 
         restart_button = Button(10, WIN_HEIGHT - 60, 120, 50, WHITE, BLACK, 'Restart', 32)
-
-    # Limpa todos os sprites
         for sprite in self.all_sprites:
-            sprite.kill()  # Agora sim, usando o kill() original do Pygame
-
+            sprite.kill()
         while self.running:
-        # Captura a posição do mouse e o estado dos botões do mouse
-            mouse_pos = pygame.mouse.get_pos()
-            mouse_pressed = pygame.mouse.get_pressed()
-
-        # Verifica eventos DENTRO do loop (corrigindo a indentação)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                    pygame.quit()
-                    sys.exit()
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_pressed = pygame.mouse.get_pressed()
 
-        # Verifica se o botão de reiniciar foi pressionado
-        if restart_button.is_pressed(mouse_pos, mouse_pressed):
-            self.new()  # Reinicia o jogo
-            self.main()  # Volta ao loop principal do jogo
-            return  # Sai da função game_over após reiniciar
+            if restart_button.is_pressed(mouse_pos, mouse_pressed):
+                self.new()
+                self.main
 
-        # Desenha a tela de Game Over
-        self.screen.blit(self.go_background, (0, 0))
-        self.screen.blit(text, text_rect)
-        self.screen.blit(restart_button.image, restart_button.rect)
-
-        self.clock.tick(FPS)
-        pygame.display.update()
-
-        # Verifica se o botão de reiniciar foi pressionado
-        if restart_button.is_pressed(mouse_pos, mouse_pressed):
-            self.new()  # Reinicia o jogo
-            self.main()  # Volta ao loop principal do jogo
-
-        # Desenha a tela de Game Over
-        self.screen.blit(self.go_background, (0, 0))
-        self.screen.blit(text, text_rect)
-        self.screen.blit(restart_button.image, restart_button.rect)
-
-        self.clock.tick(FPS)
-        pygame.display.update()
+            self.screen.blit(self.go_background, (0, 0))
+            self.screen.blit(text, text_rect)
+            self.screen.blit(restart_button.image, restart_button.rect)
+            self.clock.tick(FPS)
+            pygame.display.update()
 
     def intro_screen(self):
         intro = True
@@ -125,7 +112,7 @@ class Game:
         tittle = self.font.render('Mata Macaco', True, BLACK)
         tittle_rect = tittle.get_rect(x=10, y=10)
 
-        play_button = Button(WIN_WIDTH/2, WIN_HEIGHT/2 , 100, 50, WHITE, BLACK, 'Play', 32)
+        play_button = Button(10, 50 , 100, 50, WHITE, BLACK, 'Play', 32)
 
         while intro:
             for event in pygame.event.get():
@@ -148,12 +135,10 @@ class Game:
 # Inicializando o jogo
 g = Game()
 g.intro_screen()
-g.new()
-
+g.new()  # Corrigido: agora o método é chamado corretamente
 while g.running:
     g.main()
-    if not g.playing:  # Se o jogo terminou (por morte do jogador)
-        g.game_over()  # Agora o game_over é chamado no lugar certo
+    g.game_over()
 
 pygame.quit()
 sys.exit()
