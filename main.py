@@ -58,10 +58,10 @@ class Game:
                 if event.key == pygame.K_SPACE:
                     if self.player.facing == 'up': #cima
                         Attack(self, self.player.rect.x, self.player.rect.y - 25)
-                    if self.player.facing == 'down':
-                        Attack(self, self.player.rect.x, self.player.rect.y + 25)
-                    if self.player.facing == 'right':
-                        Attack(self, self.player.rect.x + 25, self.player.rect.y)
+                    if self.player.facing == 'down': #baixo
+                        Attack(self, self.player.rect.x , self.player.rect.y + 35)
+                    if self.player.facing == 'right': #direita
+                        Attack(self, self.player.rect.x +35, self.player.rect.y)
                     if self.player.facing == 'left': #esqd
                         Attack(self, self.player.rect.x - 25, self.player.rect.y)
                     #QUANTO MAIS BAIXO O VALOR, MAIS PROXIMO DO PLAYER
