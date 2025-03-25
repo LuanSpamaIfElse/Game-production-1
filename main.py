@@ -57,13 +57,13 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     if self.player.facing == 'up': #cima
-                        Attack(self, self.player.rect.x, self.player.rect.y - 25)
+                        Attack(self, self.player.rect.x, self.player.rect.y - 30)
                     if self.player.facing == 'down': #baixo
-                        Attack(self, self.player.rect.x , self.player.rect.y + 35)
-                    if self.player.facing == 'right': #direita
-                        Attack(self, self.player.rect.x +35, self.player.rect.y)
+                        Attack(self, self.player.rect.x , self.player.rect.y + 40)
+                    if self.player.facing == 'right': #dirweita
+                        Attack(self, self.player.rect.x +40, self.player.rect.y)
                     if self.player.facing == 'left': #esqd
-                        Attack(self, self.player.rect.x - 25, self.player.rect.y)
+                        Attack(self, self.player.rect.x - 30, self.player.rect.y)
                     #QUANTO MAIS BAIXO O VALOR, MAIS PROXIMO DO PLAYER
     def update(self):
         # Atualizações do game loop
@@ -98,7 +98,7 @@ class Game:
 
             if restart_button.is_pressed(mouse_pos, mouse_pressed):
                 self.new()
-                self.main
+                self.main()
 
             self.screen.blit(self.go_background, (0, 0))
             self.screen.blit(text, text_rect)
@@ -112,8 +112,8 @@ class Game:
         tittle = self.font.render('Mata Macaco', True, BLACK)
         tittle_rect = tittle.get_rect(x=10, y=10)
 
-        play_button = Button(10, 50 , 100, 50, WHITE, BLACK, 'Play', 32)
-
+        play_button = Button(WIN_WIDTH/2, WIN_HEIGHT/2 , 100, 50, WHITE, BLACK, 'Play', 32)
+        # adicionar botão Personagens
         while intro:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
