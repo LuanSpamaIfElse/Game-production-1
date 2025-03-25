@@ -177,6 +177,7 @@ class Ground(pygame.sprite.Sprite):
 class enemy(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
+        self.speed = ENEMY_SPEED
         self._layer = ENEMY_LAYER
         self.groups = self.game.all_sprites, self.game.enemies
         pygame.sprite.Sprite.__init__(self, self.groups)
@@ -188,7 +189,7 @@ class enemy(pygame.sprite.Sprite):
 
         self.x_change = 0
         self.y_change = 0
-        self.facing = random.choice(['left', 'right'])
+        self.facing = random.choice(['left', 'right', 'up', 'down'])
         self.movement_loop = 0  # Inicialização correta da variável
         self.max_travel = random.randint(7, 30)
 
@@ -203,7 +204,17 @@ class enemy(pygame.sprite.Sprite):
                 self.game.enemy_spritesheet.get_sprite(3, 66, self.width, self.height),
                 self.game.enemy_spritesheet.get_sprite(35, 66, self.width, self.height),
                 self.game.enemy_spritesheet.get_sprite(68, 66, self.width, self.height)
-           ]
+           ],
+            'up': [
+                self.game.enemy_spritesheet.get_sprite(3, 35, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(35, 35, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(68, 35, self.width, self.height)
+            ],
+            'down' :[
+                self.game.enemy_spritesheet.get_sprite(3, 3, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(35, 3, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(68, 3, self.width, self.height)
+            ]
         }
         self.current_frame = 0
         self.animation_speed = 10
@@ -218,24 +229,58 @@ class enemy(pygame.sprite.Sprite):
     def update(self):
         self.movement()
         self.animate()  # Atualiza a animação
-        self.rect.x += self.x_change
-        self.rect.y += self.y_change
+        
+        #self.rect.x += self.x_change
+        #self.rect.y += self.y_change
 
-        self.x_change = 0
-        self.y_change = 0
+        self.collide_blocks('x')
+        #self.X = self.rect.X
+
+        self.rect.x += self.x_change
+        block_hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        if block_hits:
+            if self.x_change > 0:  # Movendo para a direita
+                self.rect.x = block_hits[0].rect.left - self.rect.width
+                self.facing = random.choice(['left', 'up', 'down'])
+            if self.x_change < 0:  # Movendo para a esquerda
+                self.rect.x = block_hits[0].rect.right
+                self.facing = random.choice(['right', 'up', 'down'])
+    
+    # Movimento no eixo Y com verificação de colisão
+        self.rect.y += self.y_change
+        block_hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        if block_hits:
+            if self.y_change > 0:  # Movendo para baixo
+                self.rect.y = block_hits[0].rect.top - self.rect.height
+                self.facing = random.choice(['up', 'left', 'right'])
+            if self.y_change < 0:  # Movendo para cima
+                self.rect.y = block_hits[0].rect.bottom
+                self.facing = random.choice(['down', 'left', 'right'])
 
     def movement(self):
         if self.facing == 'left':
-            self.x_change -= ENEMY_SPEED
+            self.x_change -= self.speed
             self.movement_loop -= 1
             if self.movement_loop <= -self.max_travel:
-                self.facing = 'right'
+                self.facing = random.choice(['right', 'up', 'down'])
 
-        if self.facing == 'right':
-            self.x_change += ENEMY_SPEED
+        if self.facing == 'up':
+            self.y_change -= self.speed
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['right', 'left', 'down'])
+                 
+        if self.facing == 'down':
+            self.y_change += self.speed
             self.movement_loop += 1
             if self.movement_loop >= self.max_travel:
-                self.facing = 'left'
+                self.facing = random.choice(['right', 'up', 'left'])
+
+        if self.facing == 'right':
+            self.x_change += self.speed 
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['left', 'up', 'down'])
 
     def animate(self):
         # Alterna entre os frames de animação
@@ -244,6 +289,33 @@ class enemy(pygame.sprite.Sprite):
             self.animation_counter = 0
             self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
             self.image = self.animation_frames[self.facing][self.current_frame]
+
+    def collide_blocks(self, direction):
+        if direction == "x":
+            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+            if hits:
+               self.speed = ENEMY_SPEED /2
+                if self.x_change > 0:
+                    self.rect.x = hits[0].rect.left - self.rect.width
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x += self.speed
+                if self.x_change < 0:
+                    self.rect.x = hits[0].rect.right
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x -= self.speed
+
+        if direction == "y":
+            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+            if hits:
+                self.speed = ENEMY_SPEED / 2
+                if self.y_change > 0:
+                    self.rect.y = hits[0].rect.top - self.rect.height
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y += self.speed
+                if self.y_change < 0:
+                    self.rect.y = hits[0].rect.bottom
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y -= self.speed
 
 class Plant(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
