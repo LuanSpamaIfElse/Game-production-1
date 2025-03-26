@@ -13,7 +13,7 @@ class Game:
         self.font = pygame.font.SysFont('arial.ttf', 32)
 
         #sprites geral
-        self.character_spritesheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
+        self.character_spritesheet = Spritesheet('sprt/img/character.png')
         #terrenos
         self.terrain_spritesheet = Spritesheet('sprt/img/terrain.png')
         self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
