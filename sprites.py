@@ -22,78 +22,103 @@ class Player(pygame.sprite.Sprite):
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        # Posição inicial do jogador
+        # Propriedades básicas
         self.x = x * TILESIZES
         self.y = y * TILESIZES
         self.width = TILESIZES
         self.height = TILESIZES
-
-        # Variáveis de movimento
         self.x_change = 0
         self.y_change = 0
         self.facing = 'down'
-        # Carrega a imagem do personagem
-        #self.image = self.game.character_spritesheet.get_sprite(1, 3, 38, 39)
-        self.animation_frames = {
-    'left': [
-        self.game.character_spritesheet.get_sprite(3, 98, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(35, 98, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(68, 98, self.width, self.height)
+
+        # Sistema de cooldown
+        self.last_attack_time = 0
+        self.last_dodge_time = 0
+        self.is_dodging = False
+        self.dodge_duration = 500
+        self.dodge_speed_multiplier = 4
         
-    ],
-    'right': [
-        self.game.character_spritesheet.get_sprite(3, 66, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(35, 66, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(68, 66, self.width, self.height)
-    ],
-    'up': [
-        self.game.character_spritesheet.get_sprite(3, 35, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(35, 35, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(68, 35, self.width, self.height)
-    ],
-    'down': [
-        self.game.character_spritesheet.get_sprite(3, 2, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(35, 2, self.width, self.height),
-        self.game.character_spritesheet.get_sprite(65, 2, self.width, self.height)
-    ]
-}
-        if self.facing == "down":
-            if self.y_change == 0:
-                self.image = self.game.character_spritesheet.get_sprite(3, 2, self.width, self.height)
-        else:
-            self.image = self.down_animations[math.floor(self.animation_loop)]
-            self.animation_loop += 0.1
-            if self.animation_loop >= 3:
-                self.animation = 1
+        # Dodge Bar
+        self.dodge_cooldown = DODGE_COOLDOWN
+        self.last_dodge_time = -DODGE_COOLDOWN  
+    
+            
 
-        self.current_frame = 0
+        # Sistema de animação
         self.animation_speed = 10
-        self.animation_counter = 3
-
-        self.image = self.animation_frames[self.facing][self.current_frame]
+        self.animation_counter = 0
+        self.current_frame = 0
+        
+        # Carregar animações
+        self.load_animations()
+        
+        # Imagem inicial
+        self.image = self.animation_frames['down'][0]
         self.image.set_colorkey(BLACK)
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
+    
+    def get_dodge_cooldown_ratio(self):
+        #Retorna valor entre 0.0 (recém usado) e 1.0 (pronto para usar)"""
+        if not hasattr(self, 'last_dodge_time') or not hasattr(self, 'dodge_cooldown'):
+            return 1.0
+
+    def can_attack(self):
+        current_time = pygame.time.get_ticks()
+        return current_time - self.last_attack_time >= ATTACK_COOLDOWN
+
+    def can_dodge(self):
+        current_time = pygame.time.get_ticks()
+        return current_time - self.last_dodge_time >= DODGE_COOLDOWN
+
+    def get_dodge_cooldown_ratio(self):
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - self.last_dodge_time
+        return min(elapsed / self.dodge_cooldown, 1.0)
+    
+    def load_animations(self):
+        self.animation_frames = {
+            'left': [
+                self.game.character_spritesheet.get_sprite(3, 98, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(35, 98, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(68, 98, self.width, self.height)
+            ],
+            'right': [
+                self.game.character_spritesheet.get_sprite(3, 66, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(35, 66, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(68, 66, self.width, self.height)
+            ],
+            'up': [
+                self.game.character_spritesheet.get_sprite(3, 35, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(35, 35, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(68, 35, self.width, self.height)
+            ],
+            'down': [
+                self.game.character_spritesheet.get_sprite(3, 2, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(35, 2, self.width, self.height),
+                self.game.character_spritesheet.get_sprite(65, 2, self.width, self.height)
+            ]
+        }
 
     def animate(self):
-        # Alterna entre os frames de animação
-        self.animation_counter = 10
+        self.animation_counter += 1
+        
         if self.animation_counter >= self.animation_speed:
             self.animation_counter = 0
-            self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
-            self.image = self.animation_frames[self.facing][self.current_frame]
-        
-        x = self.rect.x
-        y = self.rect.y
-        self.rect = self.image.get_rect()
-        self.rect.x = self.x
-        self.rect.y = self.y
+            frames = self.animation_frames.get(self.facing, [self.image])
+            self.current_frame = (self.current_frame + 1) % len(frames)
+            self.image = frames[self.current_frame]
+            self.image.set_colorkey(BLACK)
+            
+            # Atualiza rect mantendo a posição
+            old_center = self.rect.center if hasattr(self, 'rect') else (self.x, self.y)
+            self.rect = self.image.get_rect()
+            self.rect.center = old_center
 
     def update(self):
         self.movement()
-        
-
+        self.animate()
         # Aplica o movimento
         self.rect.x += self.x_change
         self.collide_enemy()
@@ -103,56 +128,37 @@ class Player(pygame.sprite.Sprite):
         self.rect.y += self.y_change
         self.collide_blocks('y')
         self.y = self.rect.y
-        self.animate()
+        
         # Reseta os valores de movimento após cada frame
         self.x_change = 0
         self.y_change = 0
 
     def movement(self):
-            #---W,A,S,D---#
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_a]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.x += PLAYER_SPEED
+        
+        # Reset movement
+        self.x_change = 0
+        self.y_change = 0
+        
+        # Movement logic
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             self.x_change -= PLAYER_SPEED
             self.facing = 'left'
-        if keys[pygame.K_d]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.x -= PLAYER_SPEED
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             self.x_change += PLAYER_SPEED
             self.facing = 'right'
-        if keys[pygame.K_w]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.y += PLAYER_SPEED
+        if keys[pygame.K_w] or keys[pygame.K_UP]:
             self.y_change -= PLAYER_SPEED
             self.facing = 'up'
-        if keys[pygame.K_s]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.y -= PLAYER_SPEED
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
             self.y_change += PLAYER_SPEED
             self.facing = 'down'
-            #---SETINHAS---#
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.x += PLAYER_SPEED
-            self.x_change -= PLAYER_SPEED
-            self.facing = 'left'
-        if keys[pygame.K_RIGHT]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.x -= PLAYER_SPEED
-            self.x_change += PLAYER_SPEED
-            self.facing = 'right'
-        if keys[pygame.K_UP]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.y += PLAYER_SPEED
-            self.y_change -= PLAYER_SPEED
-            self.facing = 'up'
-        if keys[pygame.K_DOWN]:
-            for sprite in self.game.all_sprites:
-                sprite.rect.y -= PLAYER_SPEED
-            self.y_change += PLAYER_SPEED
-            self.facing = 'down'
+        
+        # Dodge
+        if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) and self.can_dodge():
+            self.last_dodge_time = pygame.time.get_ticks()
+            self.x_change *= self.dodge_speed_multiplier
+            self.y_change *= self.dodge_speed_multiplier
 
     def kill(self):
         self.game.playing = False  # Interrompe o jogo
@@ -190,8 +196,57 @@ class Player(pygame.sprite.Sprite):
                     self.rect.y = hits[0].rect.bottom
                     for sprite in self.game.all_sprites:
                         sprite.rect.y -= PLAYER_SPEED
+    
+    def collide_obstacle (self, direction):
+        if direction == "x":
+            hits = pygame.sprite.spritecollide(self, self.game.obstacle, False)
+            if hits:
+                if self.x_change > 0:
+                    self.rect.x = hits[0].rect.left - self.rect.width
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x += PLAYER_SPEED
+                if self.x_change < 0:
+                    self.rect.x = hits[0].rect.right
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x -= PLAYER_SPEED
 
-
+        if direction == "y":
+            hits = pygame.sprite.spritecollide(self, self.game.obstacle, False)
+            if hits:
+                if self.y_change > 0:
+                    self.rect.y = hits[0].rect.top - self.rect.height
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y += PLAYER_SPEED
+                if self.y_change < 0:
+                    self.rect.y = hits[0].rect.bottom
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y -= PLAYER_SPEED
+class DodgeBar:
+    def __init__(self, game):
+        self.game = game
+        self.width = DODGE_BAR_WIDTH
+        self.height = DODGE_BAR_HEIGHT
+        self.x = DODGE_BAR_X
+        self.y = DODGE_BAR_Y
+        
+    def draw(self, surface):
+        # Fundo da barra
+        pygame.draw.rect(surface, DODGE_BAR_BG_COLOR, 
+                        (self.x, self.y, self.width, self.height))
+        
+        if hasattr(self.game, 'player'):
+            ratio = self.game.player.get_dodge_cooldown_ratio()
+            fill_width = int(self.width * ratio)
+            
+            # Barra de preenchimento
+            color = DODGE_BAR_COLOR if ratio == 1 else DODGE_COOLDOWN_COLOR
+            pygame.draw.rect(surface, color, 
+                           (self.x, self.y, fill_width, self.height))
+            
+            # Texto
+            font = pygame.font.SysFont('Arial', 12)
+            text = font.render("Dodge", True, WHITE)
+            surface.blit(text, (self.x + 5, self.y - 15))
 class Ground(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
@@ -395,13 +450,111 @@ class Block(pygame.sprite.Sprite):
         self.height = TILESIZES
 
         # Define a aparência do bloco
-        self.image = self.game.plant_spritesheet.get_sprite(960, 448, self.width, self.height)
+        self.image = self.game.block_spritesheet.get_sprite(960, 448, self.width, self.height)
         self.image.set_colorkey(BLACK)
 
         # Define o retângulo de colisão
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
+
+class AbilityPanel:
+    def __init__(self, game):
+        self.game = game
+        self.panel = pygame.Surface((ABILITY_PANEL_WIDTH, ABILITY_PANEL_HEIGHT), pygame.SRCALPHA)
+        self.panel.fill(ABILITY_PANEL_COLOR)
+        self.rect = self.panel.get_rect(topleft=(ABILITY_PANEL_X, ABILITY_PANEL_Y))
+        
+        # Fontes
+        self.title_font = pygame.font.SysFont('arial', 20, bold=True)
+        self.text_font = pygame.font.SysFont('arial', 16)
+        self.small_font = pygame.font.SysFont('arial', 12)  # Fonte para a barra
+        
+        # Ícones
+        self.attack_icon = pygame.Surface((20, 20))
+        self.attack_icon.fill(RED)
+        self.dodge_icon = pygame.Surface((20, 20))
+        self.dodge_icon.fill(BLUE)
+        
+        # Textos pré-renderizados
+        self.attack_text = self.text_font.render("Ataque com espada", True, ABILITY_TEXT_COLOR)
+        self.dodge_text = self.text_font.render("Esquiva rápida", True, ABILITY_TEXT_COLOR)
+        
+    def draw(self, surface):
+        # Desenha o painel
+        surface.blit(self.panel, self.rect)
+        
+        # Título
+        title = self.title_font.render("Habilidades", True, ABILITY_TEXT_COLOR)
+        surface.blit(title, (self.rect.x + 10, self.rect.y + 10))
+        
+        # Espaçamento
+        y_offset = 40
+        
+        # Ataque
+        surface.blit(self.attack_icon, (self.rect.x + 10, self.rect.y + y_offset))
+        attack_key = self.text_font.render("Espaço:", True, ABILITY_TEXT_COLOR)
+        surface.blit(attack_key, (self.rect.x + 40, self.rect.y + y_offset))
+        surface.blit(self.attack_text, (self.rect.x + 120, self.rect.y + y_offset))
+        
+        # Esquiva
+        y_offset += 30
+        surface.blit(self.dodge_icon, (self.rect.x + 10, self.rect.y + y_offset))
+        dodge_key = self.text_font.render("Shift:", True, ABILITY_TEXT_COLOR)
+        surface.blit(dodge_key, (self.rect.x + 40, self.rect.y + y_offset))
+        surface.blit(self.dodge_text, (self.rect.x + 120, self.rect.y + y_offset))
+        
+        # Barra de Dodge (substitui a indicação de direção)
+        y_offset += 30
+        self.draw_dodge_bar(surface, self.rect.x + 40, self.rect.y + y_offset)
+    
+    def draw_dodge_bar(self, surface, x, y):
+        """Desenha a barra de cooldown do dodge"""
+        if not hasattr(self.game, 'player'):
+            return
+            
+        # Fundo da barra
+        pygame.draw.rect(surface, DODGE_BAR_BG_COLOR, (x, y, DODGE_BAR_WIDTH, DODGE_BAR_HEIGHT))
+        
+        # Calcula o preenchimento
+        ratio = self.game.player.get_dodge_cooldown_ratio()
+        fill_width = int(DODGE_BAR_WIDTH * ratio)
+        
+        # Cor baseada no estado
+        color = DODGE_BAR_COLOR if ratio >= 1.0 else DODGE_COOLDOWN_COLOR
+        
+        # Barra de preenchimento
+        pygame.draw.rect(surface, color, (x, y, fill_width, DODGE_BAR_HEIGHT))
+        
+        # Texto de status
+        status = "PRONTO" if ratio >= 1.0 else f"{int(ratio*100)}%"
+        status_text = self.small_font.render(status, True, WHITE)
+        surface.blit(status_text, (x + DODGE_BAR_WIDTH + 5, y))
+
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = OBSTACLE_LAYER
+        self.groups = self.game.all_sprites, self.game.blocks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        # Posição do bloco
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        # Define a aparência do bloco
+        #self.image = self.game.obstacle_spritesheet.get_sprite(320, 185, 80, 85) #arvore
+        self.image = self.game.obstacle_spritesheet.get_sprite(640, 195, self.width-4, self.height-1) #tronco
+        self.image.set_colorkey(BLACK)
+
+        # Define o retângulo de colisão
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+
 
 class Button:
     def __init__(self, x ,y, width, height, fg, bg, content, fontsize):
