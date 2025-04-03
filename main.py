@@ -11,7 +11,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
         self.font = pygame.font.SysFont('arial.ttf', 32)
-        self.dodge_bar = DodgeBar(self)
+        self.dialog_box = DialogBox(self)
         
 
         #sprites geral
@@ -25,6 +25,7 @@ class Game:
         self.block_spritesheet = Spritesheet('sprt/img/terrain.png')
         self.intro_background = pygame.image.load('sprt/img/introbackground.png')
         self.go_background = pygame.image.load('sprt/img/gameover.png')
+        self.slimenpc = Spritesheet ('sprt/img/slime_spr.png')
         self.ability_panel = AbilityPanel(self)
     def createTilemap(self): 
 
@@ -71,6 +72,7 @@ class Game:
         self.attacks = pygame.sprite.LayeredUpdates()
 
         self.createTilemap()
+        self.dialog_box.start_dialog("Bem-vindo ao 7° Portão! Aperte ESPAÇO para continuar.")
 
     def events(self):
         for event in pygame.event.get():
@@ -81,7 +83,17 @@ class Game:
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    if hasattr(self, 'player') and self.player.can_attack():  # Verifica se o player existe e pode atacar
+                    if hasattr(self, 'dialog_box') and self.dialog_box.active:
+                        if self.dialog_box.text_index < len(self.dialog_box.current_text):
+                            # Pula a animação e mostra todo o texto
+                            self.dialog_box.text_index = len(self.dialog_box.current_text)
+                            self.dialog_box.display_text = self.dialog_box.current_text
+                            self.dialog_box.update()
+                        else:
+                            # Fecha o diálogo
+                            self.dialog_box.close()
+                    elif hasattr(self, 'player') and self.player.can_attack() and self.player.life > 0:
+                        self.player.last_attack_time = pygame.time.get_ticks()
                         if self.player.facing == 'up':
                             Attack(self, self.player.rect.x, self.player.rect.y - 30)
                         elif self.player.facing == 'down':
@@ -90,7 +102,7 @@ class Game:
                             Attack(self, self.player.rect.x + 40, self.player.rect.y)
                         elif self.player.facing == 'left':
                             Attack(self, self.player.rect.x - 30, self.player.rect.y)
-                    #QUANTO MAIS BAIXO O VALOR, MAIS PROXIMO DO PLAYER
+                        #QUANTO MAIS BAIXO O VALOR, MAIS PROXIMO DO PLAYER
     def update(self):
         # Atualizações do game loop
         self.all_sprites.update()
@@ -111,9 +123,17 @@ class Game:
     def draw(self):
         self.screen.fill(BLACK)
         self.all_sprites.draw(self.screen)
+        # Desenha as barras de vida após os sprites
+        if hasattr(self, 'player'):
+            self.player.draw_health_bar(self.screen)
+        
+        for enemy in self.enemies:
+            enemy.draw_health_bar(self.screen)
+
+        
         self.clock.tick(FPS)
-        self.dodge_bar.draw(self.screen)
         self.ability_panel.draw(self.screen)
+        self.dialog_box.draw(self.screen)
         pygame.display.update()
     def main(self):
         # Loop do jogo
