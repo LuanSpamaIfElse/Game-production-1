@@ -36,7 +36,7 @@ class Player(pygame.sprite.Sprite):
         self.last_dodge_time = 0
         self.is_dodging = False
         self.dodge_duration = 500
-        self.dodge_speed_multiplier = 4
+        self.dodge_speed_multiplier = 10
         
         # Dodge Bar
         self.dodge_cooldown = DODGE_COOLDOWN
@@ -58,15 +58,43 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
-    
-    def get_dodge_cooldown_ratio(self):
-        #Retorna valor entre 0.0 (recém usado) e 1.0 (pronto para usar)"""
-        if not hasattr(self, 'last_dodge_time') or not hasattr(self, 'dodge_cooldown'):
-            return 1.0
+
+        self.life = PLAYER_LIFE  # Adicione esta linha
+        self.invulnerable = False
+        self.invulnerable_time = 0
+
+    def draw_health_bar(self, surface):
+        # Calcula a posição da barra
+        bar_x = self.rect.x + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y - HEALTH_BAR_OFFSET
+        
+        # Desenha o fundo da barra
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, (bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
+        
+        # Calcula a largura da vida atual
+        health_width = (self.life / PLAYER_LIFE) * HEALTH_BAR_WIDTH
+        # Pisca entre branco e verde durante invulnerabilidade
+        health_color = WHITE if pygame.time.get_ticks() % 200 < 100 else PLAYER_HEALTH_COLOR
+
+        # Desenha a barra de vida
+        pygame.draw.rect(surface, PLAYER_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
+
+    def take_damage(self):
+        if not self.invulnerable:
+            self.life -= 1
+            self.invulnerable = True
+            self.invulnerable_time = pygame.time.get_ticks()
+            if self.life <= 0:
+                self.kill()
 
     def can_attack(self):
         current_time = pygame.time.get_ticks()
         return current_time - self.last_attack_time >= ATTACK_COOLDOWN
+
+    def get_attack_cooldown_ratio(self):
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - self.last_attack_time
+        return min(elapsed / ATTACK_COOLDOWN, 1.0)
 
     def can_dodge(self):
         current_time = pygame.time.get_ticks()
@@ -129,6 +157,8 @@ class Player(pygame.sprite.Sprite):
         self.collide_blocks('y')
         self.y = self.rect.y
         
+        if self.invulnerable and pygame.time.get_ticks() - self.invulnerable_time > 1000:
+             self.invulnerable = False
         # Reseta os valores de movimento após cada frame
         self.x_change = 0
         self.y_change = 0
@@ -168,9 +198,9 @@ class Player(pygame.sprite.Sprite):
 
     def collide_enemy(self):
         hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
-        if hits:
-            self.kill()
-            self.game.playing = False  
+        if hits and not self.invulnerable:
+            self.take_damage()
+            #self.game.playing = False  
 
     def collide_blocks(self, direction):
         if direction == "x":
@@ -221,13 +251,7 @@ class Player(pygame.sprite.Sprite):
                     self.rect.y = hits[0].rect.bottom
                     for sprite in self.game.all_sprites:
                         sprite.rect.y -= PLAYER_SPEED
-class DodgeBar:
-    def __init__(self, game):
-        self.game = game
-        self.width = DODGE_BAR_WIDTH
-        self.height = DODGE_BAR_HEIGHT
-        self.x = DODGE_BAR_X
-        self.y = DODGE_BAR_Y
+
         
     def draw(self, surface):
         # Fundo da barra
@@ -271,6 +295,7 @@ class Ground(pygame.sprite.Sprite):
 class enemy(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
+        self.life = ENEMY_LIFE
         self.speed = ENEMY_SPEED
         self._layer = ENEMY_LAYER
         self.groups = self.game.all_sprites, self.game.enemies
@@ -319,6 +344,24 @@ class enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
+    def draw_health_bar(self, surface):
+        # Calcula a posição da barra
+        bar_x = self.rect.x + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y - HEALTH_BAR_OFFSET
+        
+        # Desenha o fundo da barra
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, (bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
+        
+        # Calcula a largura da vida atual
+        health_width = (self.life / ENEMY_LIFE) * HEALTH_BAR_WIDTH
+        
+        # Desenha a barra de vida
+        pygame.draw.rect(surface, ENEMY_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
+
+    def take_damage(self):
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
 
     def update(self):
         self.movement()
@@ -477,8 +520,8 @@ class AbilityPanel:
         self.dodge_icon.fill(BLUE)
         
         # Textos pré-renderizados
-        self.attack_text = self.text_font.render("Ataque com espada", True, ABILITY_TEXT_COLOR)
-        self.dodge_text = self.text_font.render("Esquiva rápida", True, ABILITY_TEXT_COLOR)
+        self.attack_text = self.text_font.render("ESPAÇO", True, ABILITY_TEXT_COLOR)
+        self.dodge_text = self.text_font.render("SHIFT", True, ABILITY_TEXT_COLOR)
         
     def draw(self, surface):
         # Desenha o painel
@@ -490,24 +533,43 @@ class AbilityPanel:
         
         # Espaçamento
         y_offset = 40
-        
-        # Ataque
         surface.blit(self.attack_icon, (self.rect.x + 10, self.rect.y + y_offset))
-        attack_key = self.text_font.render("Espaço:", True, ABILITY_TEXT_COLOR)
+        attack_key = self.text_font.render("Ataque:", True, ABILITY_TEXT_COLOR)
         surface.blit(attack_key, (self.rect.x + 40, self.rect.y + y_offset))
         surface.blit(self.attack_text, (self.rect.x + 120, self.rect.y + y_offset))
+        
+        # Barra de Ataque
+        y_offset += 20
+        self.draw_attack_bar(surface, self.rect.x + 40, self.rect.y + y_offset)
+
         
         # Esquiva
         y_offset += 30
         surface.blit(self.dodge_icon, (self.rect.x + 10, self.rect.y + y_offset))
-        dodge_key = self.text_font.render("Shift:", True, ABILITY_TEXT_COLOR)
+        dodge_key = self.text_font.render("Esquiva:", True, ABILITY_TEXT_COLOR)
         surface.blit(dodge_key, (self.rect.x + 40, self.rect.y + y_offset))
         surface.blit(self.dodge_text, (self.rect.x + 120, self.rect.y + y_offset))
         
         # Barra de Dodge (substitui a indicação de direção)
         y_offset += 30
         self.draw_dodge_bar(surface, self.rect.x + 40, self.rect.y + y_offset)
+    def draw_attack_bar(self, surface, x, y):
+        #Desenha a barra de cooldown do ataque
+        if not hasattr(self.game, 'player'):
+            return
+            
+        # Fundo da barra
+        pygame.draw.rect(surface, DODGE_BAR_BG_COLOR, (x, y, DODGE_BAR_WIDTH, DODGE_BAR_HEIGHT))
+        
+        # Calcula o preenchimento
+        ratio = self.game.player.get_attack_cooldown_ratio()
+        fill_width = int(DODGE_BAR_WIDTH * ratio)
+        
+        # Cor baseada no estado
+        color = GREEN if ratio >= 1.0 else (255, 0, 0)  # Verde quando pronto, vermelho durante cooldown
     
+    # Barra de preenchimento
+        pygame.draw.rect(surface, color, (x, y, fill_width, DODGE_BAR_HEIGHT))
     def draw_dodge_bar(self, surface, x, y):
         """Desenha a barra de cooldown do dodge"""
         if not hasattr(self.game, 'player'):
@@ -527,9 +589,9 @@ class AbilityPanel:
         pygame.draw.rect(surface, color, (x, y, fill_width, DODGE_BAR_HEIGHT))
         
         # Texto de status
-        status = "PRONTO" if ratio >= 1.0 else f"{int(ratio*100)}%"
-        status_text = self.small_font.render(status, True, WHITE)
-        surface.blit(status_text, (x + DODGE_BAR_WIDTH + 5, y))
+        #status = "PRONTO" if ratio >= 1.0 else f"{int(ratio*100)}%"
+        #status_text = self.small_font.render(status, True, WHITE)
+        #surface.blit(status_text, (x + DODGE_BAR_WIDTH + 5, y))
 
 class Obstacle(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
@@ -605,12 +667,17 @@ class Attack(pygame.sprite.Sprite):
         self.rect.x = x
         self.rect.y = y
 
+    def collide(self):
+        hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        for enemy in hits:
+            enemy.take_damage()
+
     def update(self):
         self.animate()
         self.collide()
 
-    def collide(self):
-        hits = pygame.sprite.spritecollide(self, self.game.enemies, True)
+    #def collide(self):
+        #hits = pygame.sprite.spritecollide(self, self.game.enemies, True)
 
     def animate(self):
         direction = self.game.player.facing
@@ -650,3 +717,93 @@ class Attack(pygame.sprite.Sprite):
             self.animation_loop += 0.5
             if self.animation_loop >= 1:
                 self.kill()
+
+class DialogBox:
+    def __init__(self, game):
+        self.game = game
+        self.active = False
+        self.current_text = ""
+        self.display_text = ""
+        self.text_index = 0
+        self.font = pygame.font.SysFont('arial', DIALOG_FONT_SIZE)
+        self.small_font = pygame.font.SysFont('arial', DIALOG_SMALL_FONT_SIZE)  # Fonte menor
+        
+        # Caixa de diálogo
+        self.box = pygame.Surface((DIALOG_BOX_WIDTH, DIALOG_BOX_HEIGHT))
+        self.box.fill(DIALOG_BOX_COLOR)
+        self.rect = self.box.get_rect(topleft=(DIALOG_BOX_X, DIALOG_BOX_Y))
+        
+        # Texto renderizado
+        self.text_surface = None
+        self.text_rect = None
+        self.continue_text = self.small_font.render("APERTE ESPAÇO PARA CONTINUAR", True, (200, 200, 200))  # Cinza claro
+        self.continue_rect = self.continue_text.get_rect(bottomright=(self.rect.right - 10, self.rect.bottom - 5))
+        
+    def start_dialog(self, text):
+        """Inicia um novo diálogo com o texto fornecido"""
+        self.active = True
+        self.current_text = text
+        self.display_text = ""
+        self.text_index = 0
+        self.update()  # Força uma atualização imediata
+        
+    def update(self):
+        if self.active and self.text_index < len(self.current_text):
+            self.text_index += DIALOG_TEXT_SPEED
+            self.display_text = self.current_text[:int(self.text_index)]
+            
+            # Aumenta a área disponível para o texto
+            text_area_width = DIALOG_BOX_WIDTH - 2*DIALOG_TEXT_MARGIN
+            text_area_height = DIALOG_BOX_HEIGHT - 2*DIALOG_TEXT_MARGIN - 25  # Espaço para o "APERTE ESPAÇO"
+            
+            self.text_surface = pygame.Surface((text_area_width, text_area_height), pygame.SRCALPHA)
+            
+            # Divide o texto em linhas que cabem na caixa
+            words = self.display_text.split(' ')
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + word + " "
+                # Verifica se a linha cabe na largura da caixa
+                if self.font.size(test_line)[0] <= text_area_width:  # <= em vez de <
+                    current_line = test_line
+                else:
+                    lines.append(current_line)
+                    current_line = word + " "
+            
+            if current_line:
+                lines.append(current_line)
+                
+            # Renderiza cada linha, verificando espaço vertical
+            y_offset = 0
+            line_height = self.font.get_height()
+            
+            for line in lines:
+                if line and y_offset + line_height <= text_area_height:  # Verifica espaço vertical
+                    line_surface = self.font.render(line, True, DIALOG_TEXT_COLOR)
+                    self.text_surface.blit(line_surface, (0, y_offset))
+                    y_offset += line_height
+    
+    def draw(self, surface):
+        """Desenha a caixa de diálogo na tela"""
+        if self.active:
+            # Desenha a caixa
+            surface.blit(self.box, self.rect)
+            
+            # Desenha o texto se existir
+            if self.text_surface:
+                surface.blit(self.text_surface, (self.rect.x + DIALOG_TEXT_MARGIN, 
+                                               self.rect.y + DIALOG_TEXT_MARGIN))
+            
+            # Desenha "APERTE ESPAÇO PARA CONTINUAR" apenas quando o texto completo estiver visível
+            if self.text_index >= len(self.current_text):
+                surface.blit(self.continue_text, (self.rect.x + self.continue_rect.x, 
+                                                self.rect.y + self.continue_rect.y))
+    
+    def close(self):
+        """Fecha a caixa de diálogo"""
+        self.active = False
+        self.current_text = ""
+        self.display_text = ""
+        self.text_index = 0
