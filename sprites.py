@@ -285,7 +285,7 @@ class Ground(pygame.sprite.Sprite):
         self.height = TILESIZES
 
         # Carrega a imagem do terreno
-        self.image = self.game.terrain_spritesheet.get_sprite(300, 295, self.width, self.height)
+        self.image = self.game.terrain_spritesheet.get_sprite(21, 91, self.width, self.height)
 
         # Define o retângulo de colisão
         self.rect = self.image.get_rect()
@@ -717,93 +717,174 @@ class Attack(pygame.sprite.Sprite):
             self.animation_loop += 0.5
             if self.animation_loop >= 1:
                 self.kill()
-
 class DialogBox:
     def __init__(self, game):
         self.game = game
         self.active = False
         self.current_text = ""
-        self.display_text = ""
-        self.text_index = 0
+        self.visible_text = ""
+        self.text_progress = 0
         self.font = pygame.font.SysFont('arial', DIALOG_FONT_SIZE)
-        self.small_font = pygame.font.SysFont('arial', DIALOG_SMALL_FONT_SIZE)  # Fonte menor
+        self.small_font = pygame.font.SysFont('arial', DIALOG_SMALL_FONT_SIZE)
         
         # Caixa de diálogo
         self.box = pygame.Surface((DIALOG_BOX_WIDTH, DIALOG_BOX_HEIGHT))
         self.box.fill(DIALOG_BOX_COLOR)
         self.rect = self.box.get_rect(topleft=(DIALOG_BOX_X, DIALOG_BOX_Y))
         
-        # Texto renderizado
-        self.text_surface = None
-        self.text_rect = None
-        self.continue_text = self.small_font.render("APERTE ESPAÇO PARA CONTINUAR", True, (200, 200, 200))  # Cinza claro
-        self.continue_rect = self.continue_text.get_rect(bottomright=(self.rect.right - 10, self.rect.bottom - 5))
-        
-    def start_dialog(self, text):
-        """Inicia um novo diálogo com o texto fornecido"""
-        self.active = True
-        self.current_text = text
-        self.display_text = ""
-        self.text_index = 0
-        self.update()  # Força uma atualização imediata
-        
-    def update(self):
-        if self.active and self.text_index < len(self.current_text):
-            self.text_index += DIALOG_TEXT_SPEED
-            self.display_text = self.current_text[:int(self.text_index)]
-            
-            # Aumenta a área disponível para o texto
-            text_area_width = DIALOG_BOX_WIDTH - 2*DIALOG_TEXT_MARGIN
-            text_area_height = DIALOG_BOX_HEIGHT - 2*DIALOG_TEXT_MARGIN - 25  # Espaço para o "APERTE ESPAÇO"
-            
-            self.text_surface = pygame.Surface((text_area_width, text_area_height), pygame.SRCALPHA)
-            
-            # Divide o texto em linhas que cabem na caixa
-            words = self.display_text.split(' ')
-            lines = []
-            current_line = ""
-            
-            for word in words:
-                test_line = current_line + word + " "
-                # Verifica se a linha cabe na largura da caixa
-                if self.font.size(test_line)[0] <= text_area_width:  # <= em vez de <
-                    current_line = test_line
-                else:
-                    lines.append(current_line)
-                    current_line = word + " "
-            
-            if current_line:
-                lines.append(current_line)
-                
-            # Renderiza cada linha, verificando espaço vertical
-            y_offset = 0
-            line_height = self.font.get_height()
-            
-            for line in lines:
-                if line and y_offset + line_height <= text_area_height:  # Verifica espaço vertical
-                    line_surface = self.font.render(line, True, DIALOG_TEXT_COLOR)
-                    self.text_surface.blit(line_surface, (0, y_offset))
-                    y_offset += line_height
-    
-    def draw(self, surface):
-        """Desenha a caixa de diálogo na tela"""
+        # Variáveis para diálogo sequencial
+        self.current_speaker = ""
+        self.npc = None
+
+    def start_dialog(self, npc):
+        """Inicia o diálogo com um NPC"""
         if self.active:
-            # Desenha a caixa
-            surface.blit(self.box, self.rect)
+            return
             
-            # Desenha o texto se existir
-            if self.text_surface:
-                surface.blit(self.text_surface, (self.rect.x + DIALOG_TEXT_MARGIN, 
-                                               self.rect.y + DIALOG_TEXT_MARGIN))
+        self.active = True
+        self.npc = npc
+        self.current_speaker = npc.dialog_sequence[0]["speaker"]
+        self.current_text = npc.dialog_sequence[0]["text"]
+        self.visible_text = ""
+        self.text_progress = 0
+
+    def update(self):
+        """Atualiza a animação do texto"""
+        if self.active and self.text_progress < len(self.current_text):
+            self.text_progress += DIALOG_TEXT_SPEED
+            self.visible_text = self.current_text[:int(self.text_progress)]
+
+    def next_dialog(self):
+        """Avança para o próximo diálogo na sequência"""
+        if self.npc and self.npc.next_dialog():
+            current_dialog = self.npc.get_current_dialog()
+            if current_dialog:
+                self.current_speaker = current_dialog["speaker"]
+                self.current_text = current_dialog["text"]
+                self.visible_text = ""
+                self.text_progress = 0
+                return True
+        return False
+
+    def draw(self, surface):
+        """Desenha a caixa de diálogo"""
+        if not self.active:
+            return
             
-            # Desenha "APERTE ESPAÇO PARA CONTINUAR" apenas quando o texto completo estiver visível
-            if self.text_index >= len(self.current_text):
-                surface.blit(self.continue_text, (self.rect.x + self.continue_rect.x, 
-                                                self.rect.y + self.continue_rect.y))
-    
+        # Desenha a caixa
+        surface.blit(self.box, self.rect)
+        
+        # Desenha nome do speaker
+        speaker_color = (200, 200, 0) if self.current_speaker == "Player" else (0, 200, 200)
+        speaker_surface = self.font.render(f"{self.current_speaker}:", True, speaker_color)
+        surface.blit(speaker_surface, (self.rect.x + 10, self.rect.y + 10))
+        
+        # Desenha texto
+        text_surface = self.font.render(self.visible_text, True, DIALOG_TEXT_COLOR)
+        surface.blit(text_surface, (self.rect.x + 10, self.rect.y + 40))
+        
+        # Mostra "APERTE ESPAÇO" quando o texto estiver completo
+        if self.text_progress >= len(self.current_text):
+            continue_text = self.small_font.render("APERTE ESPAÇO PARA CONTINUAR", True, (200, 200, 200))
+            surface.blit(continue_text, (self.rect.right - continue_text.get_width() - 10, 
+                                       self.rect.bottom - continue_text.get_height() - 5))
+
     def close(self):
         """Fecha a caixa de diálogo"""
         self.active = False
         self.current_text = ""
-        self.display_text = ""
-        self.text_index = 0
+        self.visible_text = ""
+        self.text_progress = 0
+        self.current_speaker = ""
+        self.npc = None
+class SlimeNPC(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = NPC_LAYER
+        self.groups = self.game.all_sprites, self.game.npcs
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        # Carrega as animações do slime
+        self.animation_frames = {
+            'idle': [
+                self.game.slimenpc.get_sprite(1, 1, self.width, self.height)
+            ]
+        }
+        
+        # Configuração de animação
+        self.current_frame = 0
+        self.animation_speed = 10
+        self.animation_counter = 0
+        self.image = self.animation_frames['idle'][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+        
+        # Diálogo sequencial
+        self.dialog_sequence = [
+            {"speaker": "Slime", "text": "Blub! Blub! (olá...humano)"},
+            {"speaker": "Slime", "text": "Blub, Blub, Blub! (Por favor, derrotar...goblins...malvados)"},
+            {"speaker": "Player", "text": "Não entendo o que esse pedaço de catarro fala..."},
+            {"speaker": "Player", "text": "Mas suponho que tenha a ver com aquelas coisas feias"}
+        ]
+        self.current_dialog_index = 0
+        self.in_range = False
+        self.can_interact = True  # Adicione esta linha para definir o atributo
+        self.last_interact_time = 0
+        self.interact_cooldown = 1000  # 1 segundo de cooldown
+        
+    def next_dialog(self):
+        """Avança para o próximo diálogo na sequência"""
+        self.current_dialog_index += 1
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return True
+        return False
+    
+    def get_current_dialog(self):
+        """Retorna o diálogo atual"""
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return self.dialog_sequence[self.current_dialog_index]
+        return None
+        
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames['idle'])
+            self.image = self.animation_frames['idle'][self.current_frame]
+            self.image.set_colorkey(BLACK)
+            
+    def update(self):
+        self.animate()
+        
+        current_time = pygame.time.get_ticks()
+        
+        # Verifica colisão com o jogador
+        if hasattr(self.game, 'player'):
+            colliding = pygame.sprite.collide_rect(self, self.game.player)
+            
+            if colliding and not self.in_range and self.can_interact:
+                self.in_range = True
+                if not self.game.dialog_box.active:
+                    self.current_dialog_index = 0
+                    current_dialog = self.get_current_dialog()
+                    if current_dialog:
+                        self.game.dialog_box.start_dialog(self)
+                        self.last_interact_time = current_time
+                        self.can_interact = False
+            
+            if not colliding and self.in_range:
+                self.in_range = False
+                if self.game.dialog_box.active and self.game.dialog_box.npc == self:
+                    self.game.dialog_box.close()
+        
+        # Verifica cooldown de interação
+        if not self.can_interact and current_time - self.last_interact_time > self.interact_cooldown:
+            self.can_interact = True
