@@ -25,7 +25,7 @@ class Game:
         self.block_spritesheet = Spritesheet('sprt/img/terrain.png')
         self.intro_background = pygame.image.load('sprt/img/introbackground.png')
         self.go_background = pygame.image.load('sprt/img/gameover.png')
-        self.slimenpc = Spritesheet ('sprt/img/slime_spr.png')
+        self.slimenpc = Spritesheet ('sprt/npc/slime_spr.png')
         self.ability_panel = AbilityPanel(self)
     def createTilemap(self): 
 
@@ -33,13 +33,6 @@ class Game:
         temp_tilemap = [list(row) for row in tilemap]  #Cria uma cópia modificável
         enemy_positions = []
         Obstacle_positions = []
-    # Gerar posições aleatórias para inimigos
-        while len(enemy_positions) < ENEMY_COUNT:
-            x = random.randint(0, len(temp_tilemap[0]) - 1)
-            y = random.randint(0, len(temp_tilemap) - 1)
-            if temp_tilemap[y][x] == '.':  # Posição válida
-                temp_tilemap[y][x] = 'E'
-                enemy_positions.append((x, y))
     #Posição random obstacles
         while len(Obstacle_positions) < OBSTACLE_COUNT:
             x = random.randint(0, len(temp_tilemap[0]) - 1)
@@ -60,6 +53,8 @@ class Game:
                     Plant(self, j, i)
                 if column == "O":
                     Obstacle(self, j, i)
+                if column == "S":
+                    SlimeNPC(self, j, i)
 
     def new(self):
         #self.createTilemap()
@@ -70,9 +65,10 @@ class Game:
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
         self.attacks = pygame.sprite.LayeredUpdates()
+        self.npcs = pygame.sprite.LayeredUpdates()
 
         self.createTilemap()
-        self.dialog_box.start_dialog("Bem-vindo ao 7° Portão! Aperte ESPAÇO para continuar.")
+        
 
     def events(self):
         for event in pygame.event.get():
@@ -84,14 +80,14 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     if hasattr(self, 'dialog_box') and self.dialog_box.active:
-                        if self.dialog_box.text_index < len(self.dialog_box.current_text):
-                            # Pula a animação e mostra todo o texto
-                            self.dialog_box.text_index = len(self.dialog_box.current_text)
-                            self.dialog_box.display_text = self.dialog_box.current_text
-                            self.dialog_box.update()
+                        if self.dialog_box.text_progress < len(self.dialog_box.current_text):
+                            # Pula a animação
+                            self.dialog_box.text_progress = len(self.dialog_box.current_text)
+                            self.dialog_box.visible_text = self.dialog_box.current_text
                         else:
-                            # Fecha o diálogo
-                            self.dialog_box.close()
+                            # Avança para o próximo diálogo ou fecha
+                            if not self.dialog_box.next_dialog():
+                                self.dialog_box.close()
                     elif hasattr(self, 'player') and self.player.can_attack() and self.player.life > 0:
                         self.player.last_attack_time = pygame.time.get_ticks()
                         if self.player.facing == 'up':
