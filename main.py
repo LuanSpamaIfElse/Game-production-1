@@ -7,7 +7,7 @@ from config import *
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
+        self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT), pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.clock = pygame.time.Clock()
         self.running = True
         self.font = pygame.font.SysFont('arial.ttf', 32)
@@ -17,15 +17,18 @@ class Game:
         #sprites geral
         self.character_spritesheet = Spritesheet('sprt/img/character.png')
         #terrenos
-        self.terrain_spritesheet = Spritesheet('sprt/img/terrain.png')
+        self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
+        self.obstacle_spritesheet = Spritesheet ('sprt/terrain/TreesSpr.png')
+        self.portal_spritsheet = Spritesheet ('sprt/terrain/portalpurplespr.png')
         self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
         self.attack_spritsheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
-        self.obstacle_spritesheet = Spritesheet ('sprt/img/TreesSpr.png')#640, 205
-        self.plant_spritesheet = Spritesheet('sprt/img/terrain.png')
-        self.block_spritesheet = Spritesheet('sprt/img/terrain.png')
+        #640, 205
+        self.plant_spritesheet = Spritesheet('sprt/terrain/terrain.png')
+        self.block_spritesheet = Spritesheet('sprt/terrain/terrain.png')
         self.intro_background = pygame.image.load('sprt/img/introbackground.png')
         self.go_background = pygame.image.load('sprt/img/gameover.png')
         self.slimenpc = Spritesheet ('sprt/npc/slime_spr.png')
+        self.seller_spritesheet = Spritesheet('sprt/npc/sellernpc_64x100.png')
         self.ability_panel = AbilityPanel(self)
     def createTilemap(self): 
 
@@ -55,7 +58,10 @@ class Game:
                     Obstacle(self, j, i)
                 if column == "S":
                     SlimeNPC(self, j, i)
-
+                if column == "T":
+                    Portal(self, j, i)
+                if column == "M":
+                    Seller1NPC(self, j, i)
     def new(self):
         #self.createTilemap()
         # Novo jogo começa
@@ -78,6 +84,12 @@ class Game:
                 return
 
             if event.type == pygame.KEYDOWN:
+
+                if event.key == pygame.K_F11:
+                    if self.screen.get_flags() & pygame.FULLSCREEN:
+                        self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))  # Volta para modo janela
+                    else:
+                        self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT), pygame.FULLSCREEN)  # Ativa tela cheia
                 if event.key == pygame.K_SPACE:
                     if hasattr(self, 'dialog_box') and self.dialog_box.active:
                         if self.dialog_box.text_progress < len(self.dialog_box.current_text):
@@ -102,6 +114,11 @@ class Game:
     def update(self):
         # Atualizações do game loop
         self.all_sprites.update()
+    
+    # Verifica inimigos e spawna portal se necessário
+        self.check_enemies_and_spawn_portal()
+    
+    
         if hasattr(self, 'player'):
             # Calcula o deslocamento necessário para centralizar o jogador
             camera_offset_x = WIN_WIDTH // 2 - self.player.rect.centerx
@@ -187,6 +204,19 @@ class Game:
             self.screen.blit(play_button.image, play_button.rect)
             self.clock.tick(FPS)
             pygame.display.update()
+
+    def check_enemies_and_spawn_portal(self):
+    # Verifica se todos os inimigos foram derrotados
+        if len(self.enemies) == 0:
+            # Procura por 'T' no tilemap para spawnar o portal
+            for i, row in enumerate(tilemap):
+                for j, column in enumerate(row):
+                    if column == "T":
+                        # Verifica se o portal já existe
+                        portal_exists = any(isinstance(sprite, Portal) for sprite in self.all_sprites)
+                        if not portal_exists:
+                            Portal(self, j, i)
+                        break  # Adiciona um break para sair do loop após encontrar o portal
 
 # Inicializando o jogo
 g = Game()
