@@ -292,6 +292,60 @@ class Ground(pygame.sprite.Sprite):
         self.rect.x = self.x
         self.rect.y = self.y
 
+class Portal(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = PORTAL_LAYER
+        self.groups = self.game.all_sprites, self.game.blocks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        # Variáveis para efeito de pulsação
+        self.active = True
+        self.pulse_effect = 0
+        self.pulse_speed = 0.05
+        self.pulse_max = 0.2
+
+        # Carrega as animações do portal
+        self.animation_frames = [
+            self.game.portal_spritsheet.get_sprite(18, 15, self.width, 45),
+            self.game.portal_spritsheet.get_sprite(83, 15, self.width, 45),
+            self.game.portal_spritsheet.get_sprite(150, 15, self.width, 45)
+        ]
+        
+        self.current_frame = 0
+        self.animation_speed = 0.15
+        self.animation_counter = 0
+        
+        self.image = self.animation_frames[self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+    def update(self):
+        self.animate()
+        # Efeito de pulsação quando ativo
+        if self.active:
+            self.pulse_effect = (self.pulse_effect + self.pulse_speed) % (2 * math.pi)
+            scale = 1 + math.sin(self.pulse_effect) * self.pulse_max
+            old_center = self.rect.center
+            self.image = pygame.transform.scale(self.animation_frames[self.current_frame], (int(self.width * scale), int(self.height * scale))  # Adicionei a vírgula faltante aqui
+)
+            self.rect = self.image.get_rect(center=old_center)
+    
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed * 60:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            self.image = self.animation_frames[self.current_frame]
+            self.image.set_colorkey(BLACK)
+
 class enemy(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
@@ -367,32 +421,25 @@ class enemy(pygame.sprite.Sprite):
         self.movement()
         self.animate()  # Atualiza a animação
         
-        #self.rect.x += self.x_change
-        #self.rect.y += self.y_change
-
-        self.collide_blocks('x')
-        #self.X = self.rect.X
-
+        # Aplica o movimento antes de verificar colisões
         self.rect.x += self.x_change
-        block_hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        if block_hits:
-            if self.x_change > 0:  # Movendo para a direita
-                self.rect.x = block_hits[0].rect.left - self.rect.width
-                self.facing = random.choice(['left', 'up', 'down'])
-            if self.x_change < 0:  # Movendo para a esquerda
-                self.rect.x = block_hits[0].rect.right
-                self.facing = random.choice(['right', 'up', 'down'])
-    
-    # Movimento no eixo Y com verificação de colisão
+        self.collide_blocks('x')
+        
         self.rect.y += self.y_change
-        block_hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        if block_hits:
-            if self.y_change > 0:  # Movendo para baixo
-                self.rect.y = block_hits[0].rect.top - self.rect.height
-                self.facing = random.choice(['up', 'left', 'right'])
-            if self.y_change < 0:  # Movendo para cima
-                self.rect.y = block_hits[0].rect.bottom
-                self.facing = random.choice(['down', 'left', 'right'])
+        self.collide_blocks('y')
+        
+        # Verifica se o inimigo morreu
+        if self.life <= 0:
+            self.kill()
+    def kill(self):
+    # Remove o inimigo de todos os grupos
+        for group in self.groups:
+            group.remove(self)
+        
+        # Verifica se todos os inimigos foram derrotados
+        if len(self.game.enemies) == 0:
+            # Spawna o portal se não existir
+            self.game.check_enemies_and_spawn_portal()
 
     def movement(self):
         if self.facing == 'left':
@@ -723,7 +770,7 @@ class DialogBox:
         self.active = False
         self.current_text = ""
         self.visible_text = ""
-        self.text_progress = 0
+        self.text_progress = 1
         self.font = pygame.font.SysFont('arial', DIALOG_FONT_SIZE)
         self.small_font = pygame.font.SysFont('arial', DIALOG_SMALL_FONT_SIZE)
         
@@ -737,7 +784,7 @@ class DialogBox:
         self.npc = None
 
     def start_dialog(self, npc):
-        """Inicia o diálogo com um NPC"""
+        #Inicia o diálogo com um NPC"""
         if self.active:
             return
             
@@ -746,7 +793,7 @@ class DialogBox:
         self.current_speaker = npc.dialog_sequence[0]["speaker"]
         self.current_text = npc.dialog_sequence[0]["text"]
         self.visible_text = ""
-        self.text_progress = 0
+        self.text_progress = 1
 
     def update(self):
         """Atualiza a animação do texto"""
@@ -829,10 +876,105 @@ class SlimeNPC(pygame.sprite.Sprite):
         
         # Diálogo sequencial
         self.dialog_sequence = [
-            {"speaker": "Slime", "text": "Blub! Blub! (olá...humano)"},
-            {"speaker": "Slime", "text": "Blub, Blub, Blub! (Por favor, derrotar...goblins...malvados)"},
-            {"speaker": "Player", "text": "Não entendo o que esse pedaço de catarro fala..."},
+            {'speaker': 'Slime', 'text': 'Blub! Blub! (olá...humano.)'},
+            {"speaker": "Slime", "text": "Blub, Blub, Blub! (Derrotar...Goblins...Portal...Ativar)."},
+            {"speaker": "Player", "text": "Não entendo o que esse pedaço de gosma fala..."},
             {"speaker": "Player", "text": "Mas suponho que tenha a ver com aquelas coisas feias"}
+        ]
+        self.current_dialog_index = 0
+        self.in_range = False
+        self.can_interact = True  # Adicione esta linha para definir o atributo
+        self.last_interact_time = 0
+        self.interact_cooldown = 1000  # 1 segundo de cooldown
+        
+    def next_dialog(self):
+        """Avança para o próximo diálogo na sequência"""
+        self.current_dialog_index += 1
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return True
+        return False
+    
+    def get_current_dialog(self):
+        """Retorna o diálogo atual"""
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return self.dialog_sequence[self.current_dialog_index]
+        return None
+        
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames['idle'])
+            self.image = self.animation_frames['idle'][self.current_frame]
+            self.image.set_colorkey(BLACK)
+            
+    def update(self):
+        self.animate()
+        
+        current_time = pygame.time.get_ticks()
+        
+        # Verifica colisão com o jogador
+        if hasattr(self.game, 'player'):
+            colliding = pygame.sprite.collide_rect(self, self.game.player)
+            
+            if colliding and not self.in_range and self.can_interact:
+                self.in_range = True
+                if not self.game.dialog_box.active:
+                    self.current_dialog_index = 0
+                    current_dialog = self.get_current_dialog()
+                    if current_dialog:
+                        self.game.dialog_box.start_dialog(self)
+                        self.last_interact_time = current_time
+                        self.can_interact = False
+            
+            if not colliding and self.in_range:
+                self.in_range = False
+                if self.game.dialog_box.active and self.game.dialog_box.npc == self:
+                    self.game.dialog_box.close()
+        
+        # Verifica cooldown de interação
+        if not self.can_interact and current_time - self.last_interact_time > self.interact_cooldown:
+            self.can_interact = True
+
+class Seller1NPC(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = NPC_LAYER
+        self.groups = self.game.all_sprites, self.game.npcs
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        # Carrega as animações do slime
+        self.animation_frames = {
+            'idle': [
+                self.game.seller_spritesheet.get_sprite(1, 1, 35, self.height+5)
+            ]
+        }
+        
+        # Configuração de animação
+        self.current_frame = 0
+        self.animation_speed = 10
+        self.animation_counter = 0
+        self.image = self.animation_frames['idle'][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+        
+        # Diálogo sequencial
+        self.dialog_sequence = [
+            {'speaker': '???', 'text': 'Olá, Forasteiro.'},
+            {"speaker": "Player", "text": "Quem é você?"},
+            {"speaker": "Mercador", "text": "Apenas um vendedor ambulante pelas regiôes."},
+            {"speaker": "Player", "text": "uhm... boto fé..."},
+            {"speaker": "Mercador", "text": "Está precisando de algumas melhorias em seu equipamento? Forasteiro."},
+            {"speaker": "Player", "text": "Não... por enquanto..."},
+            {"speaker": "Mercador", "text": "He he he he, te vejo por aí, Forasteiro"}
         ]
         self.current_dialog_index = 0
         self.in_range = False
