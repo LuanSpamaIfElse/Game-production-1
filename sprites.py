@@ -19,7 +19,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = PLAYER_LAYER
-        self.groups = self.game.all_sprites
+        self.groups = [self.game.all_sprites]  # Certifique-se de que é uma lista
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # Propriedades básicas
@@ -41,9 +41,7 @@ class Player(pygame.sprite.Sprite):
         # Dodge Bar
         self.dodge_cooldown = DODGE_COOLDOWN
         self.last_dodge_time = -DODGE_COOLDOWN  
-    
-            
-
+        
         # Sistema de animação
         self.animation_speed = 10
         self.animation_counter = 0
@@ -170,7 +168,7 @@ class Player(pygame.sprite.Sprite):
         self.x_change = 0
         self.y_change = 0
         
-        # Movement logic
+        # Movement logic - Teclado
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             self.x_change -= PLAYER_SPEED
             self.facing = 'left'
@@ -184,15 +182,39 @@ class Player(pygame.sprite.Sprite):
             self.y_change += PLAYER_SPEED
             self.facing = 'down'
         
-        # Dodge
+        # Movement logic - Joystick
+        if hasattr(self.game, 'joystick') and self.game.joystick:
+            # Analógico esquerdo para movimento
+            axis_x = self.game.joystick.get_axis(0)
+            axis_y = self.game.joystick.get_axis(1)
+            
+            # Deadzone para evitar drift
+            deadzone = 0.3
+            if abs(axis_x) > deadzone:
+                self.x_change += axis_x * PLAYER_SPEED
+                self.facing = 'right' if axis_x > 0 else 'left'
+            if abs(axis_y) > deadzone:
+                self.y_change += axis_y * PLAYER_SPEED
+                self.facing = 'down' if axis_y > 0 else 'up'
+        
+        # Dodge - Teclado
         if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) and self.can_dodge():
+            self.last_dodge_time = pygame.time.get_ticks()
+            self.x_change *= self.dodge_speed_multiplier
+            self.y_change *= self.dodge_speed_multiplier
+        
+        # Dodge - Joystick (Botão 1)
+        if (hasattr(self.game, 'joystick') and self.game.joystick and 
+            self.game.joystick.get_button(2) and self.can_dodge()):  # Botão 1 (geralmente X no Xbox, Quadrado no PS)
             self.last_dodge_time = pygame.time.get_ticks()
             self.x_change *= self.dodge_speed_multiplier
             self.y_change *= self.dodge_speed_multiplier
 
     def kill(self):
-        self.game.playing = False  # Interrompe o jogo
-        self.game.all_sprites.remove(self)  # Remove o jogador da lista de sprites
+    # Remove o jogador dos grupos de sprites
+        for group in self.groups:
+            group.remove(self)
+        self.game.playing = False
         self.game.game_over()  # Chama a tela de game over
 
 
@@ -271,11 +293,14 @@ class Player(pygame.sprite.Sprite):
             font = pygame.font.SysFont('Arial', 12)
             text = font.render("Dodge", True, WHITE)
             surface.blit(text, (self.x + 5, self.y - 15))
-class Ground(pygame.sprite.Sprite):
+
+#GROUNDS
+            
+class Ground1(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = GROUND_LAYER
-        self.groups = self.game.all_sprites
+        self.groups = game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # Posição do tile
@@ -283,14 +308,65 @@ class Ground(pygame.sprite.Sprite):
         self.y = y * TILESIZES
         self.width = TILESIZES
         self.height = TILESIZES
-
-        # Carrega a imagem do terreno
-        self.image = self.game.terrain_spritesheet.get_sprite(21, 91, self.width, self.height)
-
+        
+        # Diferentes sprites para cada tilemap
+        self.tilemap_sprites = {
+            1: game.terrain_spritesheet.get_sprite(32, 352, self.width, self.height),
+            2: game.terrain_spritesheet.get_sprite(576, 544, self.width, self.height)
+        }
+        
+        # Carrega o sprite baseado no nível atual
+        self.update_sprite()
+        
         # Define o retângulo de colisão
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
+    
+    def update_sprite(self):
+        """Atualiza o sprite baseado no nível atual"""
+        self.image = self.tilemap_sprites.get(self.game.current_level, 
+                                            self.tilemap_sprites[1])  # Default para tilemap1
+    
+    def update(self):
+        """Atualiza o sprite se o nível mudar"""
+        self.update_sprite()
+       
+
+class Plant(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = GROUND_LAYER
+        self.groups = self.game.all_sprites
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        # Posição da planta
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        # Diferentes sprites para cada nível
+        self.level_sprites = {
+            1: self.game.plant_spritesheet.get_sprite(510, 352, self.width, self.height),
+            2: self.game.plant_spritesheet.get_sprite(577, 420, self.width, self.height)  # Exemplo com coordenadas diferentes
+        }
+        
+        self.update_sprite()
+        self.image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def update_sprite(self):
+        """Atualiza o sprite baseado no nível atual"""
+        self.image = self.level_sprites.get(self.game.current_level, 
+                                          self.level_sprites[1])  # Default para nível 1
+    
+    def update(self):
+        """Atualiza o sprite se o nível mudar"""
+        self.update_sprite()
 
 class Portal(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
@@ -304,8 +380,8 @@ class Portal(pygame.sprite.Sprite):
         self.width = TILESIZES
         self.height = TILESIZES
         
-        # Variáveis para efeito de pulsação
-        self.active = True
+        self.activated = False
+        self.active = False  # Começa inativo
         self.pulse_effect = 0
         self.pulse_speed = 0.05
         self.pulse_max = 0.2
@@ -329,15 +405,15 @@ class Portal(pygame.sprite.Sprite):
 
     def update(self):
         self.animate()
-        # Efeito de pulsação quando ativo
-        if self.active:
-            self.pulse_effect = (self.pulse_effect + self.pulse_speed) % (2 * math.pi)
-            scale = 1 + math.sin(self.pulse_effect) * self.pulse_max
-            old_center = self.rect.center
-            self.image = pygame.transform.scale(self.animation_frames[self.current_frame], (int(self.width * scale), int(self.height * scale))  # Adicionei a vírgula faltante aqui
-)
-            self.rect = self.image.get_rect(center=old_center)
-    
+        if self.active and hasattr(self.game, 'player') and not self.activated:
+            if pygame.sprite.collide_rect(self, self.game.player):
+                self.activated = True
+                # Chama next_level diretamente após um pequeno delay
+                pygame.time.delay(300)  # Pequeno delay para efeito visual
+                self.game.next_level()
+                return True
+        return False  # Dispara evento após 300ms
+
     def animate(self):
         self.animation_counter += 1
         if self.animation_counter >= self.animation_speed * 60:
@@ -345,6 +421,15 @@ class Portal(pygame.sprite.Sprite):
             self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
             self.image = self.animation_frames[self.current_frame]
             self.image.set_colorkey(BLACK)
+            
+        # Efeito de pulsação quando ativo
+        if self.active:
+            self.pulse_effect = (self.pulse_effect + self.pulse_speed) % (2 * math.pi)
+            scale = 1 + math.sin(self.pulse_effect) * self.pulse_max
+            old_center = self.rect.center
+            self.image = pygame.transform.scale(self.animation_frames[self.current_frame], 
+                                             (int(self.width * scale), int(self.height * scale)))
+            self.rect = self.image.get_rect(center=old_center)
 
 class enemy(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
@@ -501,28 +586,6 @@ class enemy(pygame.sprite.Sprite):
                     for sprite in self.game.all_sprites:
                         sprite.rect.y -= self.speed
 
-class Plant(pygame.sprite.Sprite):
-    def __init__(self, game, x, y):
-        self.game = game
-        self._layer = GROUND_LAYER  # Plantas devem estar no mesmo layer do solo
-        self.groups = self.game.all_sprites  # Apenas visível, sem colisão
-        pygame.sprite.Sprite.__init__(self, self.groups)
-
-        # Posição da planta
-        self.x = x * TILESIZES
-        self.y = y * TILESIZES
-        self.width = TILESIZES
-        self.height = TILESIZES
-
-        # Define a aparência da planta
-        self.image = self.game.plant_spritesheet.get_sprite(510, 352, self.width, self.height)
-        self.image.set_colorkey(BLACK)  # Verde para representar plantas
-
-        # Define a posição no mapa
-        self.rect = self.image.get_rect()
-        self.rect.x = self.x
-        self.rect.y = self.y
-
         
 
 
@@ -647,21 +710,33 @@ class Obstacle(pygame.sprite.Sprite):
         self.groups = self.game.all_sprites, self.game.blocks
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        # Posição do bloco
+        # Posição do obstáculo
         self.x = x * TILESIZES
         self.y = y * TILESIZES
         self.width = TILESIZES
         self.height = TILESIZES
 
-        # Define a aparência do bloco
-        #self.image = self.game.obstacle_spritesheet.get_sprite(320, 185, 80, 85) #arvore
-        self.image = self.game.obstacle_spritesheet.get_sprite(640, 195, self.width-4, self.height-1) #tronco
+        # Diferentes sprites para cada nível
+        self.level_sprites = {
+            1: self.game.obstacle_spritesheet.get_sprite(640, 195, self.width-4, self.height-4),  # Tronco
+            2: self.game.obstacle_spritesheet.get_sprite(769, 195, self.width-4, self.height-4)       # Árvore
+        }
+        
+        self.update_sprite()
         self.image.set_colorkey(BLACK)
-
-        # Define o retângulo de colisão
+        
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
+    
+    def update_sprite(self):
+        """Atualiza o sprite baseado no nível atual"""
+        self.image = self.level_sprites.get(self.game.current_level, 
+                                          self.level_sprites[1])  # Default para nível 1
+    
+    def update(self):
+        """Atualiza o sprite se o nível mudar"""
+        self.update_sprite()
 
 
 
