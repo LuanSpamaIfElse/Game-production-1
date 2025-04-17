@@ -21,6 +21,7 @@ class Game:
         self.dialog_box = DialogBox(self)
         self.next_level_triggered = False
         
+        
         # Inicializa grupos de sprites
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
@@ -33,7 +34,11 @@ class Game:
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
         self.obstacle_spritesheet = Spritesheet('sprt/terrain/TreesSpr.png')
         self.portal_spritsheet = Spritesheet('sprt/terrain/portalpurplespr.png')
+
         self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
+        self.enemycoin_spritesheet = Spritesheet('sprt/img/enemy.png')
+        self.coin = Spritesheet('sprt/img/coin_spr.png')
+
         self.attack_spritsheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
         self.plant_spritesheet = Spritesheet('sprt/terrain/terrain.png')
         self.block_spritesheet = Spritesheet('sprt/terrain/terrain.png')
@@ -47,14 +52,14 @@ class Game:
         
         self.ability_panel = AbilityPanel(self)
         self.current_level = 1
-        self.max_levels = 3
+        self.max_levels = 8
 
     def next_level(self):
         if self.current_level < self.max_levels:
             print(f"Transicionando para o nível {self.current_level + 1}")
-            
             # Preserva a vida do jogador
             player_life = self.player.life if hasattr(self, 'player') else PLAYER_LIFE
+            player_coins = self.player.coins if hasattr(self, 'player') else 0
             
             # Limpa todos os sprites
             self.all_sprites.empty()
@@ -66,40 +71,47 @@ class Game:
             # Avança para o próximo nível
             self.current_level += 1
             
-            # Recria o tilemap com o jogador
-            self.createTilemap(create_player=True)
-            
-            # Restaura a vida do jogador
+            # Se o nível atual é par, carrega a loja
+            if self.current_level % 2 == 0:
+                print("Carregando loja...")
+                self.createTilemap(create_player=True, force_map='store')
+            else:
+                # Caso contrário, carrega o próximo nível normal
+                self.createTilemap(create_player=True)
+
             if hasattr(self, 'player'):
                 self.player.life = player_life
-        else:
-            # Se não há mais níveis, volta para o primeiro
-            print("Reiniciando para o nível 1")
-            self.current_level = 1
-            self.new()
-
-    def createTilemap(self, create_player=True):
-        """Cria o tilemap baseado no nível atual"""
+            if hasattr(self, 'player'):
+                self.player.coins = player_coins
+                
+    def createTilemap(self, create_player=True, force_map=None):
+    #""Cria o tilemap baseado no nível atual ou no mapa forçado"""
         try:
-            # Verifica qual mapa usar
-            if self.current_level == 1 and 'tilemap' in globals():
+            # Determina qual mapa usar
+            if force_map == 'store':
+                current_tilemap = store
+            elif self.current_level == 1 and 'tilemap' in globals():
                 current_tilemap = tilemap
             elif self.current_level == 2 and 'tilemap2' in globals():
                 current_tilemap = tilemap2
+            elif self.current_level == 3 and 'tilemap3' in globals():
+                current_tilemap = tilemap3
             else:
                 raise ValueError(f"Tilemap para nível {self.current_level} não encontrado")
             
+            # Restante do método permanece o mesmo...
             # Cria uma cópia do tilemap para modificar
             temp_tilemap = [list(row) for row in current_tilemap]
             obstacle_positions = []
             
-            # Posiciona obstáculos aleatórios
-            while len(obstacle_positions) < OBSTACLE_COUNT:
-                x = random.randint(0, len(temp_tilemap[0]) - 1)
-                y = random.randint(0, len(temp_tilemap) - 1)
-                if temp_tilemap[y][x] == '.':
-                    temp_tilemap[y][x] = 'O'
-                    obstacle_positions.append((x, y))
+            # Só adiciona obstáculos se não for a loja
+            if force_map != 'store':
+                while len(obstacle_positions) < OBSTACLE_COUNT:
+                    x = random.randint(0, len(temp_tilemap[0]) - 1)
+                    y = random.randint(0, len(temp_tilemap) - 1)
+                    if temp_tilemap[y][x] == '.':
+                        temp_tilemap[y][x] = 'O'
+                        obstacle_positions.append((x, y))
             
             # Cria os sprites baseados no tilemap
             for i, row in enumerate(temp_tilemap):
@@ -107,13 +119,15 @@ class Game:
                     Ground1(self, j, i)
                     if column == "B":
                         Block(self, j, i)
-                    if column == "E":
+                    if column == "E" and force_map != 'store':  # Só inimigos fora da loja
                         enemy(self, j, i)
-                    if column == "P" and create_player:  # Só cria jogador se permitido
+                    if column == "C" and force_map != 'store':
+                        EnemyCoin(self, j, i)
+                    if column == "P" and create_player:
                         self.player = Player(self, j, i)
                     if column == "Q":
                         Plant(self, j, i)
-                    if column == "O":
+                    if column == "O" and force_map != 'store':  # Só obstáculos fora da loja
                         Obstacle(self, j, i)
                     if column == "S":
                         SlimeNPC(self, j, i)
@@ -134,7 +148,6 @@ class Game:
                 if create_player:
                     temp_tilemap[5][5] = "P"  # Adiciona o player
                 self.createTilemap(create_player)
-        #
 
     def new(self):
     #"""Inicia um novo jogo"""
@@ -182,7 +195,15 @@ class Game:
                 if event.button == 1 and hasattr(self, 'player') and self.player.can_attack() and self.player.life > 0:  # Botão 2 (geralmente A no Xbox, X no PS)
                     self.player.last_attack_time = pygame.time.get_ticks()
                     self.player_attack()
-    
+
+                if event.button == 1 and hasattr(self, 'dialog_box') and self.dialog_box.active:
+                    if self.dialog_box.text_progress < len(self.dialog_box.current_text):
+                        self.dialog_box.text_progress = len(self.dialog_box.current_text)
+                        self.dialog_box.visible_text = self.dialog_box.current_text
+                    else:
+                        if not self.dialog_box.next_dialog():
+                            self.dialog_box.close()
+        
     def player_attack(self):
         """Centraliza a lógica de ataque para ser chamada tanto por teclado quanto por joystick"""
         if self.player.facing == 'up':
