@@ -30,6 +30,7 @@ class Player(pygame.sprite.Sprite):
         self.x_change = 0
         self.y_change = 0
         self.facing = 'down'
+        self.coins = 0
 
         # Sistema de cooldown
         self.last_attack_time = 0
@@ -588,6 +589,161 @@ class enemy(pygame.sprite.Sprite):
 
         
 
+class EnemyCoin(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.life = ENEMY_LIFE
+        self.speed = ENEMY_SPEED
+        self._layer = ENEMY_LAYER
+        self.groups = self.game.all_sprites, self.game.enemies
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        self.x_change = 0
+        self.y_change = 0
+        self.facing = random.choice(['left', 'right', 'up', 'down'])
+        self.movement_loop = 0  # Inicialização correta da variável
+        self.max_travel = random.randint(7, 30)
+
+        # Animação
+        self.animation_frames = {
+            'left': [
+                self.game.enemycoin_spritesheet.get_sprite(3, 98, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 98, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 98, self.width, self.height)
+            ],
+            'right': [
+                self.game.enemycoin_spritesheet.get_sprite(3, 66, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 66, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 66, self.width, self.height)
+           ],
+            'up': [
+                self.game.enemycoin_spritesheet.get_sprite(3, 35, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 35, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 35, self.width, self.height)
+            ],
+            'down' :[
+                self.game.enemycoin_spritesheet.get_sprite(3, 3, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 3, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 3, self.width, self.height)
+            ]
+        }
+        self.current_frame = 0
+        self.animation_speed = 10
+        self.animation_counter = 0
+
+        self.image = self.animation_frames[self.facing][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    def draw_health_bar(self, surface):
+        # Calcula a posição da barra
+        bar_x = self.rect.x + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y - HEALTH_BAR_OFFSET
+        
+        # Desenha o fundo da barra
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, (bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
+        
+        # Calcula a largura da vida atual
+        health_width = (self.life / ENEMY_LIFE) * HEALTH_BAR_WIDTH
+        
+        # Desenha a barra de vida
+        pygame.draw.rect(surface, ENEMY_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
+
+    def take_damage(self):
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+
+    def update(self):
+        self.movement()
+        self.animate()  # Atualiza a animação
+        
+        # Aplica o movimento antes de verificar colisões
+        self.rect.x += self.x_change
+        self.collide_blocks('x')
+        
+        self.rect.y += self.y_change
+        self.collide_blocks('y')
+        
+        # Verifica se o inimigo morreu
+        if self.life <= 0:
+            self.kill()
+    def kill(self):
+    # Remove o inimigo de todos os grupos
+        for group in self.groups:
+            group.remove(self)
+        # Dropa uma moeda quando morre
+        Coin(self.game, self.rect.centerx, self.rect.centery)
+        # Verifica se todos os inimigos foram derrotados
+        if len(self.game.enemies) == 0:
+            # Spawna o portal se não existir
+            self.game.check_enemies_and_spawn_portal()
+
+    def movement(self):
+        if self.facing == 'left':
+            self.x_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if self.facing == 'up':
+            self.y_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['right', 'left', 'down'])
+                 
+        if self.facing == 'down':
+            self.y_change = ENEMY_SPEED
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'left', 'right'])
+
+        if self.facing == 'right':
+            self.x_change = ENEMY_SPEED 
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'down', 'left'])
+
+    def animate(self):
+        # Alterna entre os frames de animação
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
+            self.image = self.animation_frames[self.facing][self.current_frame]
+
+    def collide_blocks(self, direction):
+        if direction == "x":
+            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+            if hits:
+                self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
+                if self.x_change > 0:  # Colisão ao mover para a direita
+                    self.rect.x = hits[0].rect.left - self.rect.width
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x += self.speed
+                if self.x_change < 0:  # Colisão ao mover para a esquerda
+                    self.rect.x = hits[0].rect.right
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x -= self.speed
+
+        if direction == "y":
+            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+            if hits:
+                self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
+                if self.y_change > 0:  # Colisão ao mover para baixo
+                    self.rect.y = hits[0].rect.top - self.rect.height
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y += self.speed
+                if self.y_change < 0:  # Colisão ao mover para cima
+                    self.rect.y = hits[0].rect.bottom
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y -= self.speed
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
@@ -629,9 +785,12 @@ class AbilityPanel:
         self.dodge_icon = pygame.Surface((20, 20))
         self.dodge_icon.fill(BLUE)
         
+        # Ícone da moeda
+        self.coin_icon = self.game.coin.get_sprite(9, 5, 16, 16)  # Carrega o ícone da moeda
+        
         # Textos pré-renderizados
-        self.attack_text = self.text_font.render("ESPAÇO", True, ABILITY_TEXT_COLOR)
-        self.dodge_text = self.text_font.render("SHIFT", True, ABILITY_TEXT_COLOR)
+        self.attack_text = self.text_font.render("ESPAÇO / 2", True, ABILITY_TEXT_COLOR)
+        self.dodge_text = self.text_font.render("SHIFT / 3", True, ABILITY_TEXT_COLOR)
         
     def draw(self, surface):
         # Desenha o painel
@@ -652,7 +811,6 @@ class AbilityPanel:
         y_offset += 20
         self.draw_attack_bar(surface, self.rect.x + 40, self.rect.y + y_offset)
 
-        
         # Esquiva
         y_offset += 30
         surface.blit(self.dodge_icon, (self.rect.x + 10, self.rect.y + y_offset))
@@ -660,9 +818,17 @@ class AbilityPanel:
         surface.blit(dodge_key, (self.rect.x + 40, self.rect.y + y_offset))
         surface.blit(self.dodge_text, (self.rect.x + 120, self.rect.y + y_offset))
         
-        # Barra de Dodge (substitui a indicação de direção)
+        # Barra de Dodge
         y_offset += 30
         self.draw_dodge_bar(surface, self.rect.x + 40, self.rect.y + y_offset)
+
+        # Ícone de Moeda
+        y_offset += 30
+        surface.blit(self.coin_icon, (self.rect.x + 10, self.rect.y + y_offset))
+        coin_text = self.text_font.render("Moedas:", True, ABILITY_TEXT_COLOR)
+        surface.blit(coin_text, (self.rect.x + 40, self.rect.y + y_offset))
+        coins_count = self.text_font.render(str(self.game.player.coins), True, ABILITY_TEXT_COLOR)
+        surface.blit(coins_count, (self.rect.x + 120, self.rect.y + y_offset))
     def draw_attack_bar(self, surface, x, y):
         #Desenha a barra de cooldown do ataque
         if not hasattr(self.game, 'player'):
@@ -1105,3 +1271,58 @@ class Seller1NPC(pygame.sprite.Sprite):
         # Verifica cooldown de interação
         if not self.can_interact and current_time - self.last_interact_time > self.interact_cooldown:
             self.can_interact = True
+
+class Coin(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = ITEM_LAYER  # Adicione ITEM_LAYER no config.py com valor apropriado
+        self.groups = self.game.all_sprites
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x
+        self.y = y
+        self.width = TILESIZES // 2
+        self.height = TILESIZES // 2
+        
+        # Animação da moeda
+        self.animation_frames = [
+            self.game.coin.get_sprite(9, 5, 16, 16),
+            self.game.coin.get_sprite(74, 5, 16, 16),
+            self.game.coin.get_sprite(43, 36, 16, 16),
+            self.game.coin.get_sprite(43, 70, 16, 16)
+        ]
+        
+        self.current_frame = 0
+        self.animation_speed = 0.1
+        self.animation_counter = 0
+        
+        self.image = self.animation_frames[self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.center = (self.x, self.y)
+        
+        # Tempo de vida da moeda
+        self.lifetime = 20000  # 10 segundos
+        self.spawn_time = pygame.time.get_ticks()
+    
+    def update(self):
+        # Atualiza animação
+        self.animate()
+        
+        # Verifica colisão com o jogador
+        if hasattr(self.game, 'player'):
+            if pygame.sprite.collide_rect(self, self.game.player):
+                self.game.player.coins += 1  # Incrementa contador de moedas
+                self.kill()
+        
+        # Verifica tempo de vida
+        if pygame.time.get_ticks() - self.spawn_time > self.lifetime:
+            self.kill()
+    
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed * 60:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            self.image = self.animation_frames[self.current_frame]
+            self.image.set_colorkey(BLACK)
