@@ -1192,13 +1192,14 @@ class Seller1NPC(pygame.sprite.Sprite):
         # Carrega as animações do slime
         self.animation_frames = {
             'idle': [
-                self.game.seller_spritesheet.get_sprite(1, 1, 35, self.height+5)
+                self.game.seller_spritesheet.get_sprite(1, 0, self.width, self.height),
+                self.game.seller_spritesheet.get_sprite(1, 32, self.width, self.height)
             ]
         }
         
         # Configuração de animação
         self.current_frame = 0
-        self.animation_speed = 10
+        self.animation_speed = 30
         self.animation_counter = 0
         self.image = self.animation_frames['idle'][self.current_frame]
         self.image.set_colorkey(BLACK)
