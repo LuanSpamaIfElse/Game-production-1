@@ -45,7 +45,7 @@ class Game:
         self.intro_background = pygame.image.load('sprt/img/introbackground.png')
         self.go_background = pygame.image.load('sprt/img/gameover.png')
         self.slimenpc = Spritesheet('sprt/npc/slime_spr.png')
-        self.seller_spritesheet = Spritesheet('sprt/npc/sellernpc_64x100.png')
+        self.seller_spritesheet = Spritesheet('sprt/npc/seller.png')
 
         #carregar sounds
         
