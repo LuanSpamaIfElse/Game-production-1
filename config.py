@@ -65,6 +65,20 @@ ABILITY_PANEL_Y = 10
 ABILITY_PANEL_COLOR = (50, 50, 50, 200)  # Cinza escuro semi-transparente
 ABILITY_TEXT_COLOR = WHITE
 
+# Melhorias do vendedor
+SHOP_BG_COLOR = (30, 30, 40, 200)  # Cor de fundo semi-transparente
+SHOP_TEXT_COLOR = WHITE
+SHOP_TITLE_COLOR = (255, 215, 0)  # Cor dourada para o título
+SHOP_OPTION_COLOR = (200, 200, 200)
+SHOP_SELECTED_COLOR = (255, 255, 255)  # Branco
+SHOP_OPTION_COLOR = (180, 180, 180)    # Cinza
+SHOP_FONT_SIZE = 24
+SHOP_TITLE_FONT_SIZE = 28
+SHOP_WIDTH = 300
+SHOP_HEIGHT = 300
+SHOP_X = WIN_WIDTH // 2 - SHOP_WIDTH // 2
+SHOP_Y = WIN_HEIGHT // 2 - SHOP_HEIGHT // 2
+
 # Diálogo
 DIALOG_BOX_WIDTH = WIN_WIDTH - 40
 DIALOG_BOX_HEIGHT = 140  # Aumentei a altura para acomodar o texto adicional
@@ -90,7 +104,7 @@ tilemap = [
     'B................................................B',
     'BQ.........................Q.....................B',
     'BTQQ...............Q.............................B',
-    'BQ..............E................................B',
+    'BQ...V..........E................................B',
     'B................................................B',
     'B................................................B',
     'B....Q...........................................B',
