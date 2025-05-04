@@ -30,7 +30,7 @@ class Player(pygame.sprite.Sprite):
         self.x_change = 0
         self.y_change = 0
         self.facing = 'down'
-        self.coins = 0
+        self.coins = 10
 
         # Sistema de cooldown
         self.last_attack_time = 0
@@ -61,6 +61,10 @@ class Player(pygame.sprite.Sprite):
         self.life = PLAYER_LIFE  # Adicione esta linha
         self.invulnerable = False
         self.invulnerable_time = 0
+        self.damage = 1  # Dano base
+        self.speed_boost = 0  # Bônus de velocidade
+        self.attack_cooldown_multiplier = 1.0  # Multiplicador de cooldown
+        self.dodge_cooldown_multiplier = 1.0  # Multiplicador de cooldown
 
     def draw_health_bar(self, surface):
         # Calcula a posição da barra
@@ -88,17 +92,16 @@ class Player(pygame.sprite.Sprite):
 
     def can_attack(self):
         current_time = pygame.time.get_ticks()
-        return current_time - self.last_attack_time >= ATTACK_COOLDOWN
+        return current_time - self.last_attack_time >= ATTACK_COOLDOWN * self.attack_cooldown_multiplier
+        
+    def can_dodge(self):
+        current_time = pygame.time.get_ticks()
+        return current_time - self.last_dodge_time >= DODGE_COOLDOWN * self.dodge_cooldown_multiplier
 
     def get_attack_cooldown_ratio(self):
         current_time = pygame.time.get_ticks()
         elapsed = current_time - self.last_attack_time
         return min(elapsed / ATTACK_COOLDOWN, 1.0)
-
-    def can_dodge(self):
-        current_time = pygame.time.get_ticks()
-        return current_time - self.last_dodge_time >= DODGE_COOLDOWN
-
     def get_dodge_cooldown_ratio(self):
         current_time = pygame.time.get_ticks()
         elapsed = current_time - self.last_dodge_time
@@ -163,8 +166,20 @@ class Player(pygame.sprite.Sprite):
         self.y_change = 0
 
     def movement(self):
-        keys = pygame.key.get_pressed()
+
+        shop_active = False
+        for npc in self.game.npcs:
+            if isinstance(npc, Seller2NPC) and npc.shop_active:
+                shop_active = True
+                break
         
+        # Se a loja estiver ativa, não permite movimento
+        if shop_active:
+            self.x_change = 0
+            self.y_change = 0
+            return
+        
+        keys = pygame.key.get_pressed()
         # Reset movement
         self.x_change = 0
         self.y_change = 0
@@ -1177,7 +1192,7 @@ class SlimeNPC(pygame.sprite.Sprite):
         if not self.can_interact and current_time - self.last_interact_time > self.interact_cooldown:
             self.can_interact = True
 
-class Seller1NPC(pygame.sprite.Sprite):
+class Seller1NPC(pygame.sprite.Sprite): #vendedor dialogo
     def __init__(self, game, x, y):
         self.game = game
         self._layer = NPC_LAYER
@@ -1221,7 +1236,7 @@ class Seller1NPC(pygame.sprite.Sprite):
         self.current_dialog_index = 0
         self.in_range = False
         self.can_interact = True  # Adicione esta linha para definir o atributo
-        self.last_interact_time = 0
+        self.last_interact_time = 1
         self.interact_cooldown = 1000  # 1 segundo de cooldown
         
     def next_dialog(self):
@@ -1273,6 +1288,173 @@ class Seller1NPC(pygame.sprite.Sprite):
         if not self.can_interact and current_time - self.last_interact_time > self.interact_cooldown:
             self.can_interact = True
 
+class Seller2NPC(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = NPC_LAYER
+        self.groups = self.game.all_sprites, self.game.npcs
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        # Configuração básica do sprite
+        self.image = self.game.seller_spritesheet.get_sprite(1, 0, self.width, self.height)
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+        
+        # Variáveis de interação
+        self.in_range = False
+        self.shop_active = False
+        self.selected_option = 0
+        self.interact_cooldown = 1000
+        self.last_interact_time = 0
+        
+        # Opções da loja
+        self.upgrade_options = [
+            {"name": "Vida", "cost": 5, "description": "Recupera toda a vida", "effect": self.upgrade_health},
+            {"name": "Dano", "cost": 2, "description": "+2 de dano no ataque", "effect": self.upgrade_damage},
+            {"name": "Velocidade", "cost": 2, "description": "+1 de velocidade", "effect": self.upgrade_speed},
+            {"name": "Recarga", "cost": 3, "description": "-30% tempo de recarga", "effect": self.upgrade_cooldown}
+        ]
+
+    def upgrade_health(self, player):
+        if player.coins >= 5:
+            player.coins -= 5
+            player.life = PLAYER_LIFE
+            return True
+        return False
+    
+    def upgrade_damage(self, player):
+        if player.coins >= 2:
+            player.coins -= 2
+            if not hasattr(player, 'damage'):
+                player.damage = 1
+            player.damage += 2
+            return True
+        return False
+    
+    def upgrade_speed(self, player):
+        if player.coins >= 2:
+            player.coins -= 2
+            player.speed_boost = getattr(player, 'speed_boost', 0) + 1
+            return True
+        return False
+    
+    def upgrade_cooldown(self, player):
+        if player.coins >= 3:
+            player.coins -= 3
+            player.attack_cooldown_multiplier = getattr(player, 'attack_cooldown_multiplier', 1) * 0.7
+            player.dodge_cooldown_multiplier = getattr(player, 'dodge_cooldown_multiplier', 1) * 0.7
+            return True
+        return False
+    
+    # Configurações visuais da seleção
+        self.selection_bg = pygame.Surface((SHOP_WIDTH - 40, 40), pygame.SRCALPHA)
+        self.selection_bg.fill((100, 100, 100, 150))  # Cinza transparente
+        
+        # Tempo mínimo entre interações
+        self.last_interact_time = 0
+        self.interact_cooldown = 300  # 0.3 segundos
+
+    def draw_shop(self, surface):
+        if not self.shop_active:
+            return
+            
+        # Fundo semi-transparente
+        shop_bg = pygame.Surface((SHOP_WIDTH, SHOP_HEIGHT), pygame.SRCALPHA)
+        shop_bg.fill(SHOP_BG_COLOR)
+        surface.blit(shop_bg, (SHOP_X, SHOP_Y))
+        
+        # Título
+        title_font = pygame.font.SysFont('arial', SHOP_TITLE_FONT_SIZE, bold=True)
+        title = title_font.render("Loja de Melhorias", True, SHOP_TITLE_COLOR)
+        surface.blit(title, (SHOP_X + SHOP_WIDTH//2 - title.get_width()//2, SHOP_Y + 20))
+        
+        # Moedas do jogador
+        coin_font = pygame.font.SysFont('arial', SHOP_FONT_SIZE)
+        coin_text = coin_font.render(f"Moedas: {self.game.player.coins}", True, (255, 215, 0))
+        surface.blit(coin_text, (SHOP_X + 20, SHOP_Y + 60))
+        
+        # Opções de upgrade
+        option_font = pygame.font.SysFont('arial', SHOP_FONT_SIZE)
+        for i, option in enumerate(self.upgrade_options):
+            color = SHOP_SELECTED_COLOR if i == self.selected_option else SHOP_OPTION_COLOR
+            text = option_font.render(f"{option['name']} - {option['cost']} moedas", True, color)
+            surface.blit(text, (SHOP_X + 40, SHOP_Y + 100 + i * 40))
+            
+            desc = option_font.render(option['description'], True, SHOP_TEXT_COLOR)
+            surface.blit(desc, (SHOP_X + 60, SHOP_Y + 120 + i * 40))
+    
+    def handle_shop_input(self):
+        current_time = pygame.time.get_ticks()
+        
+        # Controles de teclado
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP] and current_time - self.last_interact_time > self.interact_cooldown:
+            self.selected_option = (self.selected_option - 1) % len(self.upgrade_options)
+            self.last_interact_time = current_time
+        elif keys[pygame.K_DOWN] and current_time - self.last_interact_time > self.interact_cooldown:
+            self.selected_option = (self.selected_option + 1) % len(self.upgrade_options)
+            self.last_interact_time = current_time
+        
+        # Compra com espaço ou botão do joystick
+        if (keys[pygame.K_SPACE] or 
+            (self.game.joystick and self.game.joystick.get_button(0))):  # Botão 1 (X no Xbox, Quadrado no PS)
+            if current_time - self.last_interact_time > self.interact_cooldown:
+                selected = self.upgrade_options[self.selected_option]
+                if self.game.player.coins >= selected["cost"]:
+                    if selected["effect"](self.game.player):
+                        # Feedback visual/sonoro de compra bem-sucedida
+                        pass
+                self.last_interact_time = current_time
+        
+        # Fechar com ESC ou botão do joystick
+        if keys[pygame.K_ESCAPE] or (self.game.joystick and self.game.joystick.get_button(1)):  # Botão 2 (A no Xbox, X no PS)
+            if current_time - self.last_interact_time > self.interact_cooldown:
+                self.shop_active = False
+                self.last_interact_time = current_time
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames['idle'])
+            self.image = self.animation_frames['idle'][self.current_frame]
+            self.image.set_colorkey(BLACK)
+
+    def update(self):
+        current_time = pygame.time.get_ticks()
+        
+        if hasattr(self.game, 'player'):
+            colliding = pygame.sprite.collide_rect(self, self.game.player)
+            
+            # Abre automaticamente quando colide
+            if colliding and not self.shop_active and current_time - self.last_interact_time > self.interact_cooldown:
+                self.shop_active = True
+                self.selected_option = 0
+                self.last_interact_time = current_time
+            
+            # Fecha quando sai de perto
+            if not colliding and self.shop_active:
+                self.shop_active = False
+            
+            # Processa inputs se a loja estiver aberta
+            if self.shop_active:
+                self.handle_shop_input()
+    def activate_shop(self):
+        self.shop_active = True
+        self.selected_option = 0
+        self.last_interact_time = pygame.time.get_ticks()
+        # Pode adicionar um efeito sonoro aqui
+    
+    def deactivate_shop(self):
+        self.shop_active = False
+        self.last_interact_time = pygame.time.get_ticks()
+        # Pode adicionar um efeito sonoro aqui
 class Coin(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
