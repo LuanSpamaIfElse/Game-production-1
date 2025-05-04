@@ -135,6 +135,8 @@ class Game:
                         Portal(self, j, i)
                     if column == "M":
                         Seller1NPC(self, j, i)
+                    if column == "V":
+                        Seller2NPC(self, j, i)
                         
         except Exception as e:
             print(f"Erro ao criar tilemap: {e}")
@@ -216,9 +218,15 @@ class Game:
             Attack(self, self.player.rect.x - 30, self.player.rect.y)
 
     def update(self):
+
+        shop_active = any(isinstance(npc, Seller2NPC) and npc.shop_active for npc in self.npcs)
+        
+        # Atualiza todos os sprites, exceto o player se a loja estiver ativa
+        for sprite in self.all_sprites:
+            if not (shop_active and isinstance(sprite, Player)):
+                sprite.update()
         # Atualizações do game loop
         self.all_sprites.update()
-    
     # Verifica inimigos e spawna portal se necessário
         self.check_enemies_and_spawn_portal()
     
@@ -246,7 +254,9 @@ class Game:
         
         for enemy in self.enemies:
             enemy.draw_health_bar(self.screen)
-
+        for npc in self.npcs:
+            if isinstance(npc, Seller2NPC):
+                npc.draw_shop(self.screen)
         
         self.clock.tick(FPS)
         self.ability_panel.draw(self.screen)
