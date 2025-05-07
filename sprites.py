@@ -327,8 +327,9 @@ class Ground1(pygame.sprite.Sprite):
         
         # Diferentes sprites para cada tilemap
         self.tilemap_sprites = {
-            1: game.terrain_spritesheet.get_sprite(32, 352, self.width, self.height),
-            2: game.terrain_spritesheet.get_sprite(576, 544, self.width, self.height)
+            1: game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
+            2: game.terrain_spritesheet.get_sprite(256, 352, self.width+6, self.height)
+        
         }
         
         # Carrega o sprite baseado no nível atual
@@ -365,7 +366,7 @@ class Plant(pygame.sprite.Sprite):
         # Diferentes sprites para cada nível
         self.level_sprites = {
             1: self.game.plant_spritesheet.get_sprite(510, 352, self.width, self.height),
-            2: self.game.plant_spritesheet.get_sprite(577, 420, self.width, self.height)  # Exemplo com coordenadas diferentes
+            2: self.game.plant_spritesheet.get_sprite(288, 352, self.width, self.height) # Exemplo com coordenadas diferentes
         }
         
         self.update_sprite()
@@ -491,7 +492,7 @@ class enemy(pygame.sprite.Sprite):
             ]
         }
         self.current_frame = 0
-        self.animation_speed = 10
+        self.animation_speed = 5
         self.animation_counter = 0
 
         self.image = self.animation_frames[self.facing][self.current_frame]
@@ -581,26 +582,22 @@ class enemy(pygame.sprite.Sprite):
             if hits:
                 self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
                 if self.x_change > 0:  # Colisão ao mover para a direita
-                    self.rect.x = hits[0].rect.left - self.rect.width
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.x += self.speed
+                    self.rect.right = hits[0].rect.left
+                    self.facing = random.choice(['up', 'down', 'left'])  # Muda de direção
                 if self.x_change < 0:  # Colisão ao mover para a esquerda
-                    self.rect.x = hits[0].rect.right
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.x -= self.speed
+                    self.rect.left = hits[0].rect.right
+                    self.facing = random.choice(['up', 'down', 'right'])  # Muda de direção
 
         if direction == "y":
             hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
             if hits:
                 self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
                 if self.y_change > 0:  # Colisão ao mover para baixo
-                    self.rect.y = hits[0].rect.top - self.rect.height
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.y += self.speed
+                    self.rect.bottom = hits[0].rect.top
+                    self.facing = random.choice(['up', 'left', 'right'])  # Muda de direção
                 if self.y_change < 0:  # Colisão ao mover para cima
-                    self.rect.y = hits[0].rect.bottom
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.y -= self.speed
+                    self.rect.top = hits[0].rect.bottom
+                    self.facing = random.choice(['down', 'left', 'right'])  # Muda de direção
 
         
 
@@ -899,8 +896,8 @@ class Obstacle(pygame.sprite.Sprite):
 
         # Diferentes sprites para cada nível
         self.level_sprites = {
-            1: self.game.obstacle_spritesheet.get_sprite(640, 195, self.width-4, self.height-4),  # Tronco
-            2: self.game.obstacle_spritesheet.get_sprite(769, 195, self.width-4, self.height-4)       # Árvore
+            1: self.game.obstacle_spritesheet.get_sprite(640, 203, self.width-4, self.height-4),  # Tronco
+            2: self.game.obstacle_spritesheet.get_sprite(670, 260, self.width, self.height)
         }
         
         self.update_sprite()
@@ -952,23 +949,22 @@ class Button:
 
 class Attack(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
-
         self.game = game
         self._layer = PLAYER_LAYER
         self.groups = self.game.all_sprites, self.game.attacks
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-
         self.x = x
         self.y = y
-        self.width = TILESIZES
+        self.width = TILESIZES   # Aumenta o tamanho do ataque
         self.height = TILESIZES
-
+        
         self.animation_loop = 0
-        self.image = self.game.attack_spritsheet.get_sprite(0, 0, self.width, self.height)
+        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)  # Surface transparente
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+        self.direction = self.game.player.facing  # Armazena a direção do jogador
 
     def collide(self):
         hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
@@ -979,54 +975,45 @@ class Attack(pygame.sprite.Sprite):
         self.animate()
         self.collide()
 
-    #def collide(self):
-        #hits = pygame.sprite.spritecollide(self, self.game.enemies, True)
-
     def animate(self):
-        direction = self.game.player.facing
+        direction = self.direction  # Usa a direção armazenada
 
         right_animations = [
-                self.game.attack_spritsheet.get_sprite(40, 122, self.width, self.height)
-            ]
+            self.game.attack_spritsheet.get_sprite(40, 122, self.width, self.height)
+        ]
         down_animations = [
-                self.game.attack_spritsheet.get_sprite(114, 130, self.width, self.height)
-            ]
+            self.game.attack_spritsheet.get_sprite(114, 130, self.width, self.height)
+        ]
         left_animations = [
-                self.game.attack_spritsheet.get_sprite(77, 123, self.width, self.height)
-            ]
+            self.game.attack_spritsheet.get_sprite(77, 123, self.width, self.height)
+        ]
         up_animations = [
-                self.game.attack_spritsheet.get_sprite(0, 130, self.width, self.height - 5)
-            ]
+            self.game.attack_spritsheet.get_sprite(0, 130, self.width, self.height)
+        ]
+
         if direction == 'up':
-            self.image = up_animations[math.floor(self.animation_loop)]
-            self.animation_loop += 0.5
-            if self.animation_loop >= 1:
-                self.kill()
-
-        if direction == 'down':
-            self.image = down_animations[math.floor(self.animation_loop)]
-            self.animation_loop += 0.5
-            if self.animation_loop >= 1:
-                self.kill()
-
-        if direction == 'right':
-            self.image = right_animations[math.floor(self.animation_loop)]
-            self.animation_loop += 0.5
-            if self.animation_loop >= 1:
-                self.kill()
-
-        if direction == 'left':
-            self.image = left_animations[math.floor(self.animation_loop)]
-            self.animation_loop += 0.5
-            if self.animation_loop >= 1:
-                self.kill()
+            self.image = up_animations[0]
+        elif direction == 'down':
+            self.image = down_animations[0]
+        elif direction == 'right':
+            self.image = right_animations[0]
+        elif direction == 'left':
+            self.image = left_animations[0]
+            
+        # Mantém a posição relativa ao jogador
+        
+            
+        # Remove o ataque após um curto período
+        self.animation_loop += 0.5
+        if self.animation_loop >= 2:  # Ajuste este valor conforme necessário
+            self.kill()
 class DialogBox:
     def __init__(self, game):
         self.game = game
         self.active = False
         self.current_text = ""
         self.visible_text = ""
-        self.text_progress = 1
+        self.text_progress = 0
         self.font = pygame.font.SysFont('arial', DIALOG_FONT_SIZE)
         self.small_font = pygame.font.SysFont('arial', DIALOG_SMALL_FONT_SIZE)
         
@@ -1299,13 +1286,27 @@ class Seller2NPC(pygame.sprite.Sprite):
         self.y = y * TILESIZES
         self.width = TILESIZES
         self.height = TILESIZES
+
+        self.animation_frames = {
+            'idle': [
+                self.game.seller_spritesheet.get_sprite(1, 0, self.width, self.height),
+                self.game.seller_spritesheet.get_sprite(1, 32, self.width, self.height)
+            ]
+        }
         
-        # Configuração básica do sprite
-        self.image = self.game.seller_spritesheet.get_sprite(1, 0, self.width, self.height)
+        # Variáveis de animação
+        self.current_frame = 0
+        self.animation_speed = 30  # Velocidade da animação (ajuste conforme necessário)
+        self.animation_counter = 0
+        
+        # Define a imagem inicial
+        self.image = self.animation_frames['idle'][self.current_frame]
         self.image.set_colorkey(BLACK)
+        
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
+        
         
         # Variáveis de interação
         self.in_range = False
