@@ -16,10 +16,10 @@ SOIL_LAYER = 1
 ITEM_LAYER = 4
 
 PLAYER_LIFE = 9
-ENEMY_LIFE = 3
+ENEMY_LIFE = 15
 
-PLAYER_SPEED = 6
-ENEMY_SPEED = 2
+PLAYER_SPEED = 4
+ENEMY_SPEED = 1.5
 
 # Barra de cooldown do ataque
 ATTACK_BAR_WIDTH = 100
@@ -47,7 +47,7 @@ WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 BLACK = (0,0, 0)
-FPS = 25
+FPS = 35
 
 
 HEALTH_BAR_WIDTH = 40
@@ -70,7 +70,7 @@ SHOP_BG_COLOR = (30, 30, 40, 200)  # Cor de fundo semi-transparente
 SHOP_TEXT_COLOR = WHITE
 SHOP_TITLE_COLOR = (255, 215, 0)  # Cor dourada para o título
 SHOP_OPTION_COLOR = (200, 200, 200)
-SHOP_SELECTED_COLOR = (255, 255, 255)  # Branco
+SHOP_SELECTED_COLOR = (55, 255, 55)  # Verde
 SHOP_OPTION_COLOR = (180, 180, 180)    # Cinza
 SHOP_FONT_SIZE = 24
 SHOP_TITLE_FONT_SIZE = 28
@@ -166,4 +166,3 @@ store = [
     'B.........P..............B',
     'BBBBBBBBBBBBBBBBBBBBBBBBBB'
 ]
-
