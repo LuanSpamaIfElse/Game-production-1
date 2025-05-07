@@ -31,7 +31,9 @@ class Game:
 
         # Carrega sprites
         self.character_spritesheet = Spritesheet('sprt/img/character.png')
+        #terrenos
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
+        
         self.obstacle_spritesheet = Spritesheet('sprt/terrain/TreesSpr.png')
         self.portal_spritsheet = Spritesheet('sprt/terrain/portalpurplespr.png')
 
@@ -207,9 +209,9 @@ class Game:
                             self.dialog_box.close()
         
     def player_attack(self):
-        """Centraliza a lógica de ataque para ser chamada tanto por teclado quanto por joystick"""
+        #""Centraliza a lógica de ataque para ser chamada tanto por teclado quanto por joystick"""
         if self.player.facing == 'up':
-            Attack(self, self.player.rect.x, self.player.rect.y - 30)
+            Attack(self, self.player.rect.x, self.player.rect.y-35 )
         elif self.player.facing == 'down':
             Attack(self, self.player.rect.x, self.player.rect.y + 40)
         elif self.player.facing == 'right':
@@ -268,6 +270,7 @@ class Game:
             self.events()
             self.update()
             self.draw()
+            self.clock.tick(FPS)
 
     def game_over(self):
         text = self.font.render('Game Over', True, WHITE)
