@@ -7,6 +7,7 @@ from config import *
 
 class Game:
     def __init__(self):
+        pygame.mixer.init()
         pygame.init()
         pygame.joystick.init()
         self.joystick = None
@@ -28,8 +29,8 @@ class Game:
         self.enemies = pygame.sprite.LayeredUpdates()
         self.attacks = pygame.sprite.LayeredUpdates()
         self.npcs = pygame.sprite.LayeredUpdates()
-
-        # Carrega sprites
+        self.water = pygame.sprite.LayeredUpdates()
+        
         self.character_spritesheet = Spritesheet('sprt/img/character.png')
         #terrenos
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
@@ -72,6 +73,20 @@ class Game:
             
             # Avança para o próximo nível
             self.current_level += 1
+            
+            # Troca a música - CORREÇÃO DA INDENTAÇÃO AQUI
+            if self.current_level % 2 == 0:
+                music = MUSIC_LEVELS.get('store')
+            else:
+                music = MUSIC_LEVELS.get(self.current_level, MUSIC_LEVELS[1])
+            
+            if music:
+                try:
+                    pygame.mixer.music.load(music)
+                    pygame.mixer.music.play(-1)
+                    pygame.mixer.music.set_volume(0.15)
+                except Exception as e:
+                    print(f"Erro ao carregar música: {e}")
             
             # Se o nível atual é par, carrega a loja
             if self.current_level % 2 == 0:
@@ -139,6 +154,8 @@ class Game:
                         Seller1NPC(self, j, i)
                     if column == "V":
                         Seller2NPC(self, j, i)
+                    if column == "W":
+                        Water1(self, j, i)
                         
         except Exception as e:
             print(f"Erro ao criar tilemap: {e}")
@@ -155,6 +172,7 @@ class Game:
 
     def new(self):
     #"""Inicia um novo jogo"""
+        pygame.mixer.init()
         self.playing = True
         self.current_level = 1  # Sempre começa no nível 1
         
@@ -298,7 +316,7 @@ class Game:
 
     def intro_screen(self):
         intro = True
-
+        
         tittle = self.font.render('7° Portão', True, BLACK)
         tittle_rect = tittle.get_rect(x=10, y=10)
 
@@ -314,9 +332,13 @@ class Game:
             mouse_pressed = pygame.mouse.get_pressed()
 
             if play_button.is_pressed(mouse_pos, mouse_pressed):
-                pygame.mixer.music.load(SongFlorest)
-                pygame.mixer.music.play(-1)
-                pygame.mixer.music.set_volume(0.15) 
+                try:
+                    pygame.mixer.music.load(MUSIC_LEVELS[1])
+                    pygame.mixer.music.play(-1)
+                    pygame.mixer.music.set_volume(0.15)
+                    print("Música do menu carregada com sucesso")
+                except Exception as e:
+                    print(f"Erro ao carregar música do menu: {e}")
                 intro = False
             
             self.screen.blit(self.intro_background, (0,0))
