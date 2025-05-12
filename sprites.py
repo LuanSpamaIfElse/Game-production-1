@@ -10,7 +10,7 @@ class Spritesheet:
         self.sheet = pygame.image.load(file).convert_alpha()
 
     def get_sprite(self, x, y, width, height):
-        sprite = pygame.Surface([width, height], pygame.SRCALPHA)  # Permite transparência
+        sprite = pygame.Surface([width, height], pygame.SRCALPHA)  # transparência
         sprite.blit(self.sheet, (0, 0), (x, y, width, height))
         return sprite
 
@@ -19,7 +19,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = PLAYER_LAYER
-        self.groups = [self.game.all_sprites]  # Certifique-se de que é uma lista
+        self.groups = [self.game.all_sprites]  #uma lista
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # Propriedades básicas
@@ -39,7 +39,7 @@ class Player(pygame.sprite.Sprite):
         self.dodge_duration = 500
         self.dodge_speed_multiplier = 10
         
-        # Dodge Bar
+        # Dodge Bar (esquiva)
         self.dodge_cooldown = DODGE_COOLDOWN
         self.last_dodge_time = -DODGE_COOLDOWN  
         
@@ -239,31 +239,33 @@ class Player(pygame.sprite.Sprite):
         if hits and not self.invulnerable:
             self.take_damage()
             #self.game.playing = False  
-
     def collide_blocks(self, direction):
-        if direction == "x":
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                if self.x_change > 0:
-                    self.rect.x = hits[0].rect.left - self.rect.width
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.x += PLAYER_SPEED
-                if self.x_change < 0:
-                    self.rect.x = hits[0].rect.right
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.x -= PLAYER_SPEED
+        # Colisão com blocos normais e água
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
+        
+        # Combina ambas as colisões
+        all_hits = hits + water_hits
+        
+        if direction == "x" and all_hits:
+            if self.x_change > 0:
+                self.rect.x = all_hits[0].rect.left - self.rect.width
+                for sprite in self.game.all_sprites:
+                    sprite.rect.x += PLAYER_SPEED
+            if self.x_change < 0:
+                self.rect.x = all_hits[0].rect.right
+                for sprite in self.game.all_sprites:
+                    sprite.rect.x -= PLAYER_SPEED
 
-        if direction == "y":
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                if self.y_change > 0:
-                    self.rect.y = hits[0].rect.top - self.rect.height
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.y += PLAYER_SPEED
-                if self.y_change < 0:
-                    self.rect.y = hits[0].rect.bottom
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.y -= PLAYER_SPEED
+        if direction == "y" and all_hits:
+            if self.y_change > 0:
+                self.rect.y = all_hits[0].rect.top - self.rect.height
+                for sprite in self.game.all_sprites:
+                    sprite.rect.y += PLAYER_SPEED
+            if self.y_change < 0:
+                self.rect.y = all_hits[0].rect.bottom
+                for sprite in self.game.all_sprites:
+                    sprite.rect.y -= PLAYER_SPEED
     
     def collide_obstacle (self, direction):
         if direction == "x":
@@ -348,7 +350,36 @@ class Ground1(pygame.sprite.Sprite):
     def update(self):
         """Atualiza o sprite se o nível mudar"""
         self.update_sprite()
-       
+
+class Water1(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = GROUND_LAYER
+        self.groups = self.game.all_sprites, self.game.water  #grupo water
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        self.tilemap_sprites = {
+            1: game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
+            2: game.terrain_spritesheet.get_sprite(0, 544, self.width+6, self.height)
+        }
+        
+        self.update_sprite()
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def update_sprite(self):
+        self.image = self.tilemap_sprites.get(self.game.current_level, 
+                                            self.tilemap_sprites[1])
+    
+    def update(self):
+        self.update_sprite()
 
 class Plant(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
@@ -577,27 +608,28 @@ class enemy(pygame.sprite.Sprite):
             self.image = self.animation_frames[self.facing][self.current_frame]
 
     def collide_blocks(self, direction):
-        if direction == "x":
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
-                if self.x_change > 0:  # Colisão ao mover para a direita
-                    self.rect.right = hits[0].rect.left
-                    self.facing = random.choice(['up', 'down', 'left'])  # Muda de direção
-                if self.x_change < 0:  # Colisão ao mover para a esquerda
-                    self.rect.left = hits[0].rect.right
-                    self.facing = random.choice(['up', 'down', 'right'])  # Muda de direção
+        # Colisão com blocos normais e água
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
+        all_hits = hits + water_hits
+        
+        if direction == "x" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.x_change > 0:
+                self.rect.right = all_hits[0].rect.left
+                self.facing = random.choice(['up', 'down', 'left'])
+            if self.x_change < 0:
+                self.rect.left = all_hits[0].rect.right
+                self.facing = random.choice(['up', 'down', 'right'])
 
-        if direction == "y":
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
-                if self.y_change > 0:  # Colisão ao mover para baixo
-                    self.rect.bottom = hits[0].rect.top
-                    self.facing = random.choice(['up', 'left', 'right'])  # Muda de direção
-                if self.y_change < 0:  # Colisão ao mover para cima
-                    self.rect.top = hits[0].rect.bottom
-                    self.facing = random.choice(['down', 'left', 'right'])  # Muda de direção
+        if direction == "y" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.y_change > 0:
+                self.rect.bottom = all_hits[0].rect.top
+                self.facing = random.choice(['up', 'left', 'right'])
+            if self.y_change < 0:
+                self.rect.top = all_hits[0].rect.bottom
+                self.facing = random.choice(['down', 'left', 'right'])
 
         
 
@@ -731,31 +763,28 @@ class EnemyCoin(pygame.sprite.Sprite):
             self.image = self.animation_frames[self.facing][self.current_frame]
 
     def collide_blocks(self, direction):
-        if direction == "x":
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
-                if self.x_change > 0:  # Colisão ao mover para a direita
-                    self.rect.x = hits[0].rect.left - self.rect.width
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.x += self.speed
-                if self.x_change < 0:  # Colisão ao mover para a esquerda
-                    self.rect.x = hits[0].rect.right
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.x -= self.speed
+    # Colisão com blocos normais e água
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
+        all_hits = hits + water_hits
+        
+        if direction == "x" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.x_change > 0:
+                self.rect.right = all_hits[0].rect.left
+                self.facing = random.choice(['up', 'down', 'left'])
+            if self.x_change < 0:
+                self.rect.left = all_hits[0].rect.right
+                self.facing = random.choice(['up', 'down', 'right'])
 
-        if direction == "y":
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                self.speed = ENEMY_SPEED / 2  # Reduz a velocidade pela metade ao colidir
-                if self.y_change > 0:  # Colisão ao mover para baixo
-                    self.rect.y = hits[0].rect.top - self.rect.height
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.y += self.speed
-                if self.y_change < 0:  # Colisão ao mover para cima
-                    self.rect.y = hits[0].rect.bottom
-                    for sprite in self.game.all_sprites:
-                        sprite.rect.y -= self.speed
+        if direction == "y" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.y_change > 0:
+                self.rect.bottom = all_hits[0].rect.top
+                self.facing = random.choice(['up', 'left', 'right'])
+            if self.y_change < 0:
+                self.rect.top = all_hits[0].rect.bottom
+                self.facing = random.choice(['down', 'left', 'right'])
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
