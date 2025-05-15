@@ -330,8 +330,8 @@ class Ground1(pygame.sprite.Sprite):
         # Diferentes sprites para cada tilemap
         self.tilemap_sprites = {
             1: game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
-            2: game.terrain_spritesheet.get_sprite(256, 352, self.width+6, self.height)
-        
+            2: game.terrain_spritesheet.get_sprite(256, 352, self.width+6, self.height),
+            3: game.terrain_spritesheet.get_sprite(925, 703, self.width+6, self.height)
         }
         
         # Carrega o sprite baseado no nível atual
@@ -355,7 +355,7 @@ class Water1(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = GROUND_LAYER
-        self.groups = self.game.all_sprites, self.game.water  #grupo water
+        self.groups = self.game.all_sprites, self.game.water
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         self.x = x * TILESIZES
@@ -363,22 +363,48 @@ class Water1(pygame.sprite.Sprite):
         self.width = TILESIZES
         self.height = TILESIZES
         
-        self.tilemap_sprites = {
-            1: game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
-            2: game.terrain_spritesheet.get_sprite(0, 544, self.width+6, self.height)
+        # Carrega os frames de animação para cada nível
+        self.tilemap_animations = {
+            1: [
+                game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(32, 352, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(64, 352, self.width, self.height)
+            ],
+            2: [
+                game.terrain_spritesheet.get_sprite(0, 544, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(64, 544, self.width, self.height)
+            ]
         }
         
-        self.update_sprite()
+        # Configuração da animação
+        self.current_frame = 0
+        self.animation_speed = 0.6  # Velocidade da animação (ajuste conforme necessário)
+        self.animation_counter = 0
         
+        self.update_sprite()
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
     
     def update_sprite(self):
-        self.image = self.tilemap_sprites.get(self.game.current_level, 
-                                            self.tilemap_sprites[1])
+        """Atualiza o sprite baseado no nível atual"""
+        frames = self.tilemap_animations.get(self.game.current_level, 
+                                          self.tilemap_animations[1])  # Default para nível 1
+        self.image = frames[self.current_frame]
+    
+    def animate(self):
+        """Atualiza a animação da água"""
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed * 60:  # 60 FPS
+            self.animation_counter = 0
+            frames = self.tilemap_animations.get(self.game.current_level, 
+                                              self.tilemap_animations[1])
+            self.current_frame = (self.current_frame + 1) % len(frames)
+            self.image = frames[self.current_frame]
     
     def update(self):
+        """Atualiza o sprite e a animação"""
+        self.animate()
         self.update_sprite()
 
 class Plant(pygame.sprite.Sprite):
@@ -397,7 +423,8 @@ class Plant(pygame.sprite.Sprite):
         # Diferentes sprites para cada nível
         self.level_sprites = {
             1: self.game.plant_spritesheet.get_sprite(510, 352, self.width, self.height),
-            2: self.game.plant_spritesheet.get_sprite(288, 352, self.width, self.height) # Exemplo com coordenadas diferentes
+            2: self.game.plant_spritesheet.get_sprite(288, 352, self.width, self.height),
+            3: self.game.plant_spritesheet.get_sprite(993, 515, self.width, self.height)# Exemplo com coordenadas diferentes
         }
         
         self.update_sprite()
@@ -926,7 +953,8 @@ class Obstacle(pygame.sprite.Sprite):
         # Diferentes sprites para cada nível
         self.level_sprites = {
             1: self.game.obstacle_spritesheet.get_sprite(640, 203, self.width-4, self.height-4),  # Tronco
-            2: self.game.obstacle_spritesheet.get_sprite(670, 260, self.width, self.height)
+            2: self.game.obstacle_spritesheet.get_sprite(670, 260, self.width, self.height),
+            3: self.game.plant_spritesheet.get_sprite(994, 546, self.width, self.height) 
         }
         
         self.update_sprite()
@@ -937,9 +965,8 @@ class Obstacle(pygame.sprite.Sprite):
         self.rect.y = self.y
     
     def update_sprite(self):
-        """Atualiza o sprite baseado no nível atual"""
-        self.image = self.level_sprites.get(self.game.current_level, 
-                                          self.level_sprites[1])  # Default para nível 1
+        #""Atualiza o sprite baseado no nível atual"""
+        self.image = self.level_sprites.get(self.game.current_level)  # Default para nível 1
     
     def update(self):
         """Atualiza o sprite se o nível mudar"""
@@ -1389,7 +1416,7 @@ class Seller2NPC(pygame.sprite.Sprite):
         
         # Tempo mínimo entre interações
         self.last_interact_time = 0
-        self.interact_cooldown = 300  # 0.3 segundos
+        self.interact_cooldown = 0.01
 
     def draw_shop(self, surface):
         if not self.shop_active:
