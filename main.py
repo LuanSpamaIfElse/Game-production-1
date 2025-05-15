@@ -58,63 +58,67 @@ class Game:
         self.max_levels = 8
 
     def next_level(self):
-        if self.current_level < self.max_levels:
-            print(f"Transicionando para o nível {self.current_level + 1}")
-            # Preserva a vida do jogador
-            player_life = self.player.life if hasattr(self, 'player') else PLAYER_LIFE
-            player_coins = self.player.coins if hasattr(self, 'player') else 0
-            
-            # Limpa todos os sprites
-            self.all_sprites.empty()
-            self.blocks.empty()
-            self.enemies.empty()
-            self.attacks.empty()
-            self.npcs.empty()
-            
-            # Avança para o próximo nível
-            self.current_level += 1
-            
-            # Troca a música - CORREÇÃO DA INDENTAÇÃO AQUI
-            if self.current_level % 2 == 0:
-                music = MUSIC_LEVELS.get('store')
-            else:
-                music = MUSIC_LEVELS.get(self.current_level, MUSIC_LEVELS[1])
-            
-            if music:
-                try:
-                    pygame.mixer.music.load(music)
-                    pygame.mixer.music.play(-1)
-                    pygame.mixer.music.set_volume(0.15)
-                except Exception as e:
-                    print(f"Erro ao carregar música: {e}")
-            
-            # Se o nível atual é par, carrega a loja
-            if self.current_level % 2 == 0:
-                print("Carregando loja...")
-                self.createTilemap(create_player=True, force_map='store')
-            else:
-                # Caso contrário, carrega o próximo nível normal
-                self.createTilemap(create_player=True)
+        player_life = self.player.life if hasattr(self, 'player') else PLAYER_LIFE
+        player_coins = self.player.coins if hasattr(self, 'player') else 0
 
-            if hasattr(self, 'player'):
-                self.player.life = player_life
-            if hasattr(self, 'player'):
-                self.player.coins = player_coins
+        # Limpa todos os sprites
+        self.all_sprites.empty()
+        self.blocks.empty()
+        self.enemies.empty()
+        self.attacks.empty()
+        self.npcs.empty()
+
+        # Verifica se deve carregar a loja ou o próximo nível normal
+        if getattr(self, 'loading_store', False):
+            # Jogador está na loja, agora deve avançar para o próximo level normal
+            self.loading_store = False
+            self.current_level += 1
+            next_map = self.current_level
+            music = MUSIC_LEVELS.get(self.current_level, MUSIC_LEVELS[1])
+            create_player = True
+        else:
+            # Jogador terminou level normal, agora vai para a loja
+            self.loading_store = True
+            next_map = 'store'
+            music = MUSIC_LEVELS.get('store')
+            create_player = True
+
+        if self.current_level > self.max_levels:
+            print("Todos os níveis completados!")
+            return
+
+        print(f"Loading {next_map}")
+
+        # Cria o mapa
+        self.createTilemap(create_player=create_player, force_map=next_map)
+
+        # Mantém a vida e moedas do jogador
+        if hasattr(self, 'player'):
+            self.player.life = player_life
+            self.player.coins = player_coins
+
+        # Toca a música
+        if music:
+            try:
+                pygame.mixer.music.load(music)
+                pygame.mixer.music.play(-1)
+                pygame.mixer.music.set_volume(0.15)
+            except Exception as e:
+                print(f"Erro ao carregar música: {e}")
+
+
                 
     def createTilemap(self, create_player=True, force_map=None):
-    #""Cria o tilemap baseado no nível atual ou no mapa forçado"""
         try:
             # Determina qual mapa usar
             if force_map == 'store':
                 current_tilemap = store
-            elif self.current_level == 1 and 'tilemap' in globals():
+            elif self.current_level == 1:
                 current_tilemap = tilemap
-            elif self.current_level == 2 and 'tilemap2' in globals():
+            elif self.current_level == 2:
                 current_tilemap = tilemap2
-            elif self.current_level == 3 and 'tilemap3' in globals():
+            elif self.current_level == 3:
                 current_tilemap = tilemap3
-            else:
-                raise ValueError(f"Tilemap para nível {self.current_level} não encontrado")
             
             # Restante do método permanece o mesmo...
             # Cria uma cópia do tilemap para modificar
