@@ -371,8 +371,9 @@ class Water1(pygame.sprite.Sprite):
                 game.terrain_spritesheet.get_sprite(64, 352, self.width, self.height)
             ],
             2: [
-                game.terrain_spritesheet.get_sprite(0, 544, self.width, self.height),
-                game.terrain_spritesheet.get_sprite(64, 544, self.width, self.height)
+                game.terrain_spritesheet.get_sprite(864, 160, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(894, 160, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(924,160, self.width, self.height)
             ]
         }
         
@@ -423,7 +424,7 @@ class Plant(pygame.sprite.Sprite):
         # Diferentes sprites para cada nível
         self.level_sprites = {
             1: self.game.plant_spritesheet.get_sprite(510, 352, self.width, self.height),
-            2: self.game.plant_spritesheet.get_sprite(288, 352, self.width, self.height),
+            2: self.game.plant_spritesheet.get_sprite(352, 544, self.width, self.height),
             3: self.game.plant_spritesheet.get_sprite(993, 515, self.width, self.height)# Exemplo com coordenadas diferentes
         }
         
