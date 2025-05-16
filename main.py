@@ -126,7 +126,7 @@ class Game:
             obstacle_positions = []
             
             # Só adiciona obstáculos se não for a loja
-            if force_map != 'store':
+            if force_map != 'store' and self.current_level != 2:
                 while len(obstacle_positions) < OBSTACLE_COUNT:
                     x = random.randint(0, len(temp_tilemap[0]) - 1)
                     y = random.randint(0, len(temp_tilemap) - 1)
@@ -148,7 +148,7 @@ class Game:
                         self.player = Player(self, j, i)
                     if column == "Q":
                         Plant(self, j, i)
-                    if column == "O" and force_map != 'store':  # Só obstáculos fora da loja
+                    if column == "O" and force_map != 'store' and self.current_level != 2:  # Só obstáculos fora da loja
                         Obstacle(self, j, i)
                     if column == "S":
                         SlimeNPC(self, j, i)
@@ -229,7 +229,7 @@ class Game:
                     else:
                         if not self.dialog_box.next_dialog():
                             self.dialog_box.close()
-        
+                
     def player_attack(self):
         #""Centraliza a lógica de ataque para ser chamada tanto por teclado quanto por joystick"""
         if self.player.facing == 'up':
