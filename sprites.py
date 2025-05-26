@@ -32,7 +32,14 @@ class Player(pygame.sprite.Sprite):
         self.facing = 'down'
         self.coins = 10
 
+        #lentidão agua
+        self.base_speed = PLAYER_SPEED
+        self.slow_modifier = 0.5  # Reduz a velocidade pela metade na água
+        self.is_in_water = False
+        self.last_water_damage_time = 0  # Controla se está na água
+
         # Sistema de cooldown
+
         self.last_attack_time = 0
         self.last_dodge_time = 0
         self.is_dodging = False
@@ -146,12 +153,24 @@ class Player(pygame.sprite.Sprite):
             self.rect = self.image.get_rect()
             self.rect.center = old_center
 
+    def handle_water(self):
+        """Verifica colisão com água e aplica efeitos (lentidão + dano)."""
+        self.is_in_water = pygame.sprite.spritecollide(self, self.game.water, False)
+        
+        # Aplica dano de 1 por segundo
+        if self.is_in_water:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.last_water_damage_time >= 1000:  # 1 segundo
+                self.take_damage()
+                self.last_water_damage_time = current_time
+
     def update(self):
         self.movement()
         self.animate()
+        self.handle_water()
+        self.collide_enemy()
         # Aplica o movimento
         self.rect.x += self.x_change
-        self.collide_enemy()
         self.collide_blocks('x')
         self.x = self.rect.x
 
@@ -159,8 +178,19 @@ class Player(pygame.sprite.Sprite):
         self.collide_blocks('y')
         self.y = self.rect.y
         
+        # Verifica se está na água e causa dano (1 por segundo)
+        if pygame.sprite.spritecollide(self, self.game.water, False):
+            current_time = pygame.time.get_ticks()
+            if not hasattr(self, 'last_water_damage_time'):
+                self.last_water_damage_time = current_time
+            if current_time - self.last_water_damage_time >= 150:  # 1/2 segundo
+                self.take_damage()
+                self.last_water_damage_time = current_time
+        
+        # Remove invulnerabilidade após 1 segundo
         if self.invulnerable and pygame.time.get_ticks() - self.invulnerable_time > 1000:
-             self.invulnerable = False
+            self.invulnerable = False
+        
         # Reseta os valores de movimento após cada frame
         self.x_change = 0
         self.y_change = 0
@@ -179,23 +209,27 @@ class Player(pygame.sprite.Sprite):
             self.y_change = 0
             return
         
+    
         keys = pygame.key.get_pressed()
         # Reset movement
         self.x_change = 0
         self.y_change = 0
-        
+
+        # Aplica velocidade base ou reduzida
+        current_speed = self.base_speed * (self.slow_modifier if self.is_in_water else 1)
+
         # Movement logic - Teclado
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            self.x_change -= PLAYER_SPEED
+            self.x_change -= current_speed
             self.facing = 'left'
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            self.x_change += PLAYER_SPEED
+            self.x_change += current_speed
             self.facing = 'right'
         if keys[pygame.K_w] or keys[pygame.K_UP]:
-            self.y_change -= PLAYER_SPEED
+            self.y_change -= current_speed
             self.facing = 'up'
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            self.y_change += PLAYER_SPEED
+            self.y_change += current_speed
             self.facing = 'down'
         
         # Movement logic - Joystick
@@ -235,35 +269,34 @@ class Player(pygame.sprite.Sprite):
 
 
     def collide_enemy(self):
-        hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
-        if hits and not self.invulnerable:
+    # Verifica colisão com inimigos normais e morcegos
+        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bat, False)
+        
+        # Se colidiu com qualquer inimigo e não está invulnerável
+        if (hits_enemies or hits_bats) and not self.invulnerable:
             self.take_damage()
-            #self.game.playing = False  
     def collide_blocks(self, direction):
-        # Colisão com blocos normais e água
+    # Colisão apenas com blocos normais (não inclui água)
         hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
         
-        # Combina ambas as colisões
-        all_hits = hits + water_hits
-        
-        if direction == "x" and all_hits:
+        if direction == "x" and hits:
             if self.x_change > 0:
-                self.rect.x = all_hits[0].rect.left - self.rect.width
+                self.rect.x = hits[0].rect.left - self.rect.width
                 for sprite in self.game.all_sprites:
                     sprite.rect.x += PLAYER_SPEED
             if self.x_change < 0:
-                self.rect.x = all_hits[0].rect.right
+                self.rect.x = hits[0].rect.right
                 for sprite in self.game.all_sprites:
                     sprite.rect.x -= PLAYER_SPEED
 
-        if direction == "y" and all_hits:
+        if direction == "y" and hits:
             if self.y_change > 0:
-                self.rect.y = all_hits[0].rect.top - self.rect.height
+                self.rect.y = hits[0].rect.top - self.rect.height
                 for sprite in self.game.all_sprites:
                     sprite.rect.y += PLAYER_SPEED
             if self.y_change < 0:
-                self.rect.y = all_hits[0].rect.bottom
+                self.rect.y = hits[0].rect.bottom
                 for sprite in self.game.all_sprites:
                     sprite.rect.y -= PLAYER_SPEED
     
@@ -294,6 +327,12 @@ class Player(pygame.sprite.Sprite):
 
         
     def draw(self, surface):
+        if self.is_in_water:
+        # Desenha um círculo azul semitransparente sob o Player
+            water_radius = self.rect.width // 2
+            water_surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+            pygame.draw.circle(water_surface, (0, 100, 255, 128), (water_radius, water_radius), water_radius)
+            surface.blit(water_surface, self.rect.topleft)
         # Fundo da barra
         pygame.draw.rect(surface, DODGE_BAR_BG_COLOR, 
                         (self.x, self.y, self.width, self.height))
@@ -506,6 +545,154 @@ class Portal(pygame.sprite.Sprite):
             self.image = pygame.transform.scale(self.animation_frames[self.current_frame], 
                                              (int(self.width * scale), int(self.height * scale)))
             self.rect = self.image.get_rect(center=old_center)
+
+class Bat(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.life = BAT_LIFE
+        self.speed = BAT_SPEED
+        self._layer = ENEMY_LAYER
+        self.groups = self.game.all_sprites, self.game.bat
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        self.x_change = 0
+        self.y_change = 0
+        self.facing = random.choice(['left', 'right', 'up', 'down'])
+        self.movement_loop = 0  # Inicialização correta da variável
+        self.max_travel = random.randint(7, 30)
+
+        # Animação
+        self.animation_frames = {
+            'left': [
+                self.game.bat_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
+            ],
+            'right': [
+                self.game.bat_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
+           ],
+            'up': [
+                self.game.bat_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
+            ],
+            'down' :[
+                self.game.bat_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
+            ]
+        }
+        self.current_frame = 0
+        self.animation_speed = 5
+        self.animation_counter = 0
+
+        self.image = self.animation_frames[self.facing][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    def draw_health_bar(self, surface):
+        # Calcula a posição da barra
+        bar_x = self.rect.x + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y - HEALTH_BAR_OFFSET
+        
+        # Desenha o fundo da barra
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, (bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
+        
+        # Calcula a largura da vida atual
+        health_width = (self.life / ENEMY_LIFE) * HEALTH_BAR_WIDTH
+        
+        # Desenha a barra de vida
+        pygame.draw.rect(surface, ENEMY_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
+
+    def take_damage(self):
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+
+    def update(self):
+        self.movement()
+        self.animate()  # Atualiza a animação
+        
+        # Aplica o movimento antes de verificar colisões
+        self.rect.x += self.x_change
+        self.collide_blocks('x')
+        
+        self.rect.y += self.y_change
+        self.collide_blocks('y')
+        
+        # Verifica se o inimigo morreu
+        if self.life <= 0:
+            self.kill()
+    def kill(self):
+    # Remove o inimigo de todos os grupos
+        for group in self.groups:
+            group.remove(self)
+        
+        # Verifica se todos os inimigos foram derrotados
+        if len(self.game.bat ) == 0:
+            # Spawna o portal se não existir
+            self.game.check_enemies_and_spawn_portal()
+
+    def movement(self):
+        if self.facing == 'left':
+            self.x_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if self.facing == 'up':
+            self.y_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['right', 'left', 'down'])
+                 
+        if self.facing == 'down':
+            self.y_change = ENEMY_SPEED
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'left', 'right'])
+
+        if self.facing == 'right':
+            self.x_change = ENEMY_SPEED 
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'down', 'left'])
+
+    def animate(self):
+        # Alterna entre os frames de animação
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
+            self.image = self.animation_frames[self.facing][self.current_frame]
+
+    def collide_blocks(self, direction):
+        # Colisão com blocos normais e água
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
+        all_hits = hits + water_hits
+        
+        if direction == "x" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.x_change > 0:
+                self.rect.right = all_hits[0].rect.left
+                self.facing = random.choice(['up', 'down', 'left'])
+            if self.x_change < 0:
+                self.rect.left = all_hits[0].rect.right
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if direction == "y" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.y_change > 0:
+                self.rect.bottom = all_hits[0].rect.top
+                self.facing = random.choice(['up', 'left', 'right'])
+            if self.y_change < 0:
+                self.rect.top = all_hits[0].rect.bottom
+                self.facing = random.choice(['down', 'left', 'right'])
 
 class enemy(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
