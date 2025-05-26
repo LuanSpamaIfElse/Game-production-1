@@ -16,9 +16,11 @@ ITEM_LAYER = 4
 
 PLAYER_LIFE = 15
 ENEMY_LIFE = 1
+BAT_LIFE = 5
 
 PLAYER_SPEED = 4
 ENEMY_SPEED = 1.0
+BAT_SPEED = 5
 
 # Barra de cooldown do ataque
 ATTACK_BAR_WIDTH = 100
@@ -107,7 +109,7 @@ tilemap = [
     'B....S...O.......................................B',
     'BOQQOOOOO........................................B',
     'B..Q....C........................................B',
-    'B................................................B',
+    'B...........G....................................B',
     'BQ.........................Q.....................B',
     'BTQQ...............Q.............................B',
     'BQ..............E................................B',
@@ -135,33 +137,33 @@ tilemap = [
 # Fase 2 - Tilemap com spawn na parte inferior
 tilemap2 = [
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-    'BT.....WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..WWWWWW...B',
+    'BT.....WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..WWWWWQ...B',
     'B......WWWW..WWWWWWWWWWWWWWWWWWWWWWWW....C..QQ...B',
-    'B......WQWWWWWWWWW.............WWWWWWW...E..WW...B',
-    'B......WQWWWWW..................WWWWWW......WW...B',
-    'B......WQQWW.....................QQQ....W..WWW...B',
+    'B......WQWWWWWWWWW.............WWWWWWW...E..WWQ..B',
+    'B......WQWWWWW..................WWQQWW......WW...B',
+    'B......WQQWW.....................QQQ....W..WW....B',
     'B......WWWWWW....................QWW.........W...B',
-    'B......WQQWWW....................WWWWW.....WWW...B',
+    'B......WQQWWW....................WWWWW.....WWWQ..B',
     'B......WWWWWWWWWWWWW...........WWWWWWW...WWWWW...B',
-    'B......WWWWWQQWWWWW.W........WWWWWWWWWWWWQQWWW...B',
+    'B......WWWWWQQWWWWW.W........WWWWWWWWWWWWQQWW....B',
     'B......WWWWWW....WW..............WWWWWWW.WWWWW...B',
-    'B......WWWWWWWWWWWWW...........WWWWWWWQWWWWWWW...B',
-    'B......WQWWWWWQWWWWWWWWWWWW..WWWWWWWWWWWW..WWW...B',
-    'B......WWWWWWWWWWWWWWWWWWWWQQWWWWWWWW......WWW...B',
+    'B......WWWWWWWWWWWWW...........WWWWWWWQWWWWWW....B',
+    'B......WQWWWWWQWWWWWWWWWWWW..QWWWWWWWWWWW..WWW...B',
+    'B......WWWWWWWWWWWWWWQQWWWWQQ.WWWWWWW......WWWW..B',
     'B......WWWQQWWWW...WWWWWWWW..Q..........WWWWWW...B',
     'B......WWWWWWWWWWWWWWWWWWWWWWWW..........WWWWW...B',
-    'B......WWWWWWW.......WWWWWW.WWWWWWW......WW.WW...B',
-    'B......QQ...........WWWWW...WWQQQ........WW.WW...B',
-    'B.......WQQW..........QQ....QQ..........WWWQWW...B',
+    'B......WWWWWWW.......WWWWWW.WWWWWWW......WW.WWQ..B',
+    'B......QQ...........WQQWW...W.QQQ........WW.WQ...B',
+    'B........QQW..........QQ.....Q..........WWWQWWQ..B',
     'B......QWWWWWWWWWWWWWWWQQWWWWW.....WWWWWWWWWWW..PB',
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 ]
 
 tilemap3 = [
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-    'B..T...O........................QQQ...............B',
+    'B..T...O.......................QQQ...............B',
     'B.PQ....O........................................B',
-    'B.QQQ.......................Q....................B',
+    'B.QQQ..........GGGG.........Q....................B',
     'B..QQ.Q..............................QQ..Q.......B',
     'B..Q....C........................................B',
     'B...........................Q....................B',
@@ -170,7 +172,7 @@ tilemap3 = [
     'BQ..............E................................B',
     'B................................................B',
     'B................................................B',
-    'B....Q...........................................B',
+    'B....Q.........GGGG...............................B',
     'B........Q.......................................B',
     'B...........................Q....................B',
     'B......................Q.Q.......................B',
