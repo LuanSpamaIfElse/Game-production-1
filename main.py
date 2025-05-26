@@ -27,6 +27,7 @@ class Game:
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
+        self.bats = pygame.sprite.LayeredUpdates()
         self.attacks = pygame.sprite.LayeredUpdates()
         self.npcs = pygame.sprite.LayeredUpdates()
         self.water = pygame.sprite.LayeredUpdates()
@@ -40,6 +41,7 @@ class Game:
 
         self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
         self.enemycoin_spritesheet = Spritesheet('sprt/img/enemy.png')
+        self.bat_spritesheet = Spritesheet('sprt/npc/bat.png')
         self.coin = Spritesheet('sprt/img/coin_spr.png')
 
         self.attack_spritsheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
@@ -64,6 +66,7 @@ class Game:
         # Limpa todos os sprites
         self.all_sprites.empty()
         self.blocks.empty()
+        self.bat.empty()
         self.enemies.empty()
         self.attacks.empty()
         self.npcs.empty()
@@ -160,6 +163,8 @@ class Game:
                         Seller2NPC(self, j, i)
                     if column == "W":
                         Water1(self, j, i)
+                    if column == "G":
+                        Bat(self, j, i)
                         
         except Exception as e:
             print(f"Erro ao criar tilemap: {e}")
@@ -184,6 +189,7 @@ class Game:
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
+        self.bat = pygame.sprite.LayeredUpdates()
         self.attacks = pygame.sprite.LayeredUpdates()
         self.npcs = pygame.sprite.LayeredUpdates()
         
@@ -295,7 +301,7 @@ class Game:
             self.clock.tick(FPS)
 
     def game_over(self):
-        text = self.font.render('Game Over', True, WHITE)
+        text = self.font.render('Game Over, TENTE NOVAMENTE!', True, WHITE)
         text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
 
         restart_button = Button(10, WIN_HEIGHT - 60, 120, 50, WHITE, BLACK, 'Restart', 32)
@@ -321,7 +327,7 @@ class Game:
     def intro_screen(self):
         intro = True
         
-        tittle = self.font.render('7° Portão', True, BLACK)
+        tittle = self.font.render('GameAdventure', True, BLACK)
         tittle_rect = tittle.get_rect(x=10, y=10)
 
         play_button = Button(WIN_WIDTH/2, WIN_HEIGHT/2 , 100, 50, WHITE, BLACK, 'Play', 32)
@@ -352,7 +358,7 @@ class Game:
             pygame.display.update()
 
     def check_enemies_and_spawn_portal(self):
-        if len(self.enemies) == 0:
+        if len(self.enemies and self.bat) == 0:
             # Procura por portais existentes primeiro
             for sprite in self.all_sprites:
                 if isinstance(sprite, Portal):
