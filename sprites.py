@@ -603,7 +603,7 @@ class Bat(pygame.sprite.Sprite):
         pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, (bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
         
         # Calcula a largura da vida atual
-        health_width = (self.life / ENEMY_LIFE) * HEALTH_BAR_WIDTH
+        health_width = (self.life / BAT_LIFE) * HEALTH_BAR_WIDTH
         
         # Desenha a barra de vida
         pygame.draw.rect(surface, ENEMY_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
@@ -1211,9 +1211,14 @@ class Attack(pygame.sprite.Sprite):
         self.direction = self.game.player.facing  # Armazena a direção do jogador
 
     def collide(self):
-        hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
-        for enemy in hits:
+        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bat, False)
+
+        for enemy in hits_enemies:
             enemy.take_damage()
+
+        for bat in hits_bats:
+            bat.take_damage()
 
     def update(self):
         self.animate()
