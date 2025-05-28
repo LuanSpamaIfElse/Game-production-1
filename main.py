@@ -284,6 +284,9 @@ class Game:
         
         for enemy in self.enemies:
             enemy.draw_health_bar(self.screen)
+        for bat in self.bat:
+            bat.draw_health_bar(self.screen)
+
         for npc in self.npcs:
             if isinstance(npc, Seller2NPC):
                 npc.draw_shop(self.screen)
