@@ -154,13 +154,22 @@ class Player(pygame.sprite.Sprite):
             self.rect.center = old_center
 
     def handle_water(self):
-        """Verifica colisão com água e aplica efeitos (lentidão + dano)."""
-        self.is_in_water = pygame.sprite.spritecollide(self, self.game.water, False)
+        #""Verifica colisão com água e aplica efeitos (lentidão + dano)."""
+        # Define uma "área de colisão" apenas na parte inferior do jogador
+        bottom_half_rect = pygame.Rect(
+            self.rect.left,
+            self.rect.centery,
+            self.rect.width,
+            self.rect.height / 2
+        )
+
+        self.is_in_water = any(water.rect.colliderect(bottom_half_rect) for water in self.game.water)
+
         
         # Aplica dano de 1 por segundo
         if self.is_in_water:
             current_time = pygame.time.get_ticks()
-            if current_time - self.last_water_damage_time >= 1000:  # 1 segundo
+            if current_time - self.last_water_damage_time >= 1700:  # 1.7segundo
                 self.take_damage()
                 self.last_water_damage_time = current_time
 
@@ -179,7 +188,14 @@ class Player(pygame.sprite.Sprite):
         self.y = self.rect.y
         
         # Verifica se está na água e causa dano (1 por segundo)
-        if pygame.sprite.spritecollide(self, self.game.water, False):
+        bottom_half_rect = pygame.Rect(
+            self.rect.left,
+            self.rect.centery,
+            self.rect.width,
+            self.rect.height / 2
+        )
+        if any(water.rect.colliderect(bottom_half_rect) for water in self.game.water):
+
             current_time = pygame.time.get_ticks()
             if not hasattr(self, 'last_water_damage_time'):
                 self.last_water_damage_time = current_time
