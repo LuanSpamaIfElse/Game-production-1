@@ -18,6 +18,7 @@ class Spritesheet:
 class Player(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
+        self.damage = PLAYER_DAMAGE
         self._layer = PLAYER_LAYER
         self.groups = [self.game.all_sprites]  #uma lista
         pygame.sprite.Sprite.__init__(self, self.groups)
@@ -624,8 +625,8 @@ class Bat(pygame.sprite.Sprite):
         # Desenha a barra de vida
         pygame.draw.rect(surface, ENEMY_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
 
-    def take_damage(self):
-        self.life -= 1
+    def take_damage(self, amount):
+        self.life -= amount
         if self.life <= 0:
             self.kill()
 
@@ -776,8 +777,8 @@ class enemy(pygame.sprite.Sprite):
         # Desenha a barra de vida
         pygame.draw.rect(surface, ENEMY_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
 
-    def take_damage(self):
-        self.life -= 1
+    def take_damage(self, amount):
+        self.life -= amount
         if self.life <= 0:
             self.kill()
 
@@ -930,8 +931,8 @@ class EnemyCoin(pygame.sprite.Sprite):
         # Desenha a barra de vida
         pygame.draw.rect(surface, ENEMY_HEALTH_COLOR, (bar_x, bar_y, health_width, HEALTH_BAR_HEIGHT))
 
-    def take_damage(self):
-        self.life -= 1
+    def take_damage(self, amount):
+        self.life -= amount
         if self.life <= 0:
             self.kill()
 
@@ -1231,10 +1232,10 @@ class Attack(pygame.sprite.Sprite):
         hits_bats = pygame.sprite.spritecollide(self, self.game.bat, False)
 
         for enemy in hits_enemies:
-            enemy.take_damage()
+            enemy.take_damage(self.game.player.damage)  # Passa o dano do jogador
 
         for bat in hits_bats:
-            bat.take_damage()
+            bat.take_damage(self.game.player.damage)  # Passa o dano do jogador
 
     def update(self):
         self.animate()
@@ -1577,7 +1578,7 @@ class Seller2NPC(pygame.sprite.Sprite):
         self.in_range = False
         self.shop_active = False
         self.selected_option = 0
-        self.interact_cooldown = 1000
+        self.interact_cooldown = 10
         self.last_interact_time = 0
         
         # Opções da loja
@@ -1596,11 +1597,9 @@ class Seller2NPC(pygame.sprite.Sprite):
         return False
     
     def upgrade_damage(self, player):
-        if player.coins >= 2:
+        if player.coins >= 2:  # Custo da melhoria
             player.coins -= 2
-            if not hasattr(player, 'damage'):
-                player.damage = 1
-            player.damage += 2
+            player.damage += 1  # Aumenta o dano em 1
             return True
         return False
     
@@ -1625,7 +1624,7 @@ class Seller2NPC(pygame.sprite.Sprite):
         
         # Tempo mínimo entre interações
         self.last_interact_time = 0
-        self.interact_cooldown = 0.01
+        self.interact_cooldown = 1500
 
     def draw_shop(self, surface):
         if not self.shop_active:
