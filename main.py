@@ -70,6 +70,7 @@ class Game:
         self.enemies.empty()
         self.attacks.empty()
         self.npcs.empty()
+        self.water.empty()
 
         # Verifica se deve carregar a loja ou o próximo nível normal
         if getattr(self, 'loading_store', False):
@@ -163,7 +164,7 @@ class Game:
                         Seller2NPC(self, j, i)
                     if column == "W":
                         Water1(self, j, i)
-                    if column == "G":
+                    if column == "G" and self.current_level == 3:
                         Bat(self, j, i)
                         
         except Exception as e:
@@ -361,7 +362,7 @@ class Game:
             pygame.display.update()
 
     def check_enemies_and_spawn_portal(self):
-        if len(self.enemies and self.bat) == 0:
+        if len(self.enemies) == 0:
             # Procura por portais existentes primeiro
             for sprite in self.all_sprites:
                 if isinstance(sprite, Portal):
