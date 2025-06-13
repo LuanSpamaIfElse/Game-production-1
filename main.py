@@ -58,6 +58,7 @@ class Game:
     def character_selection_screen(self):
         selected = 1
         
+        
         title_font = pygame.font.SysFont('arial', 48, bold=True)
         char_font = pygame.font.SysFont('arial', 36)
         desc_font = pygame.font.SysFont('arial', 24)
@@ -151,19 +152,11 @@ class Game:
             self.screen.blit(right_btn.image, right_btn.rect)
             self.screen.blit(play_btn.image, play_btn.rect)
             
+            
             pygame.display.update()
             self.clock.tick(FPS)
     
-    def start_game(self):
-        """Inicia o jogo com o personagem selecionado"""
-        try:
-            pygame.mixer.music.load(MUSIC_LEVELS[1])
-            pygame.mixer.music.play(-1)
-            pygame.mixer.music.set_volume(0.15)
-        except Exception as e:
-            print(f"Erro ao carregar música: {e}")
-        
-        self.new()
+    
 
     def intro_screen(self):
         intro = True
@@ -191,7 +184,16 @@ class Game:
             self.screen.blit(play_button.image, play_button.rect)
             self.clock.tick(FPS)
             pygame.display.update()
-
+    def start_game(self):
+        """Inicia o jogo com o personagem selecionado"""
+        try:
+            pygame.mixer.music.load(MUSIC_LEVELS[1])
+            pygame.mixer.music.play(-1)
+            pygame.mixer.music.set_volume(0.15)
+        except Exception as e:
+            print(f"Erro ao carregar música: {e}")
+        
+        self.new()
     def next_level(self):
         player_life = self.player.life if hasattr(self, 'player') else PLAYER_LIFE
         player_coins = self.player.coins if hasattr(self, 'player') else 0
@@ -354,13 +356,13 @@ class Game:
                                 self.dialog_box.close()
                     elif hasattr(self, 'player') and self.player.can_attack() and self.player.life > 0:
                         self.player.last_attack_time = pygame.time.get_ticks()
-                        self.player_attack()
+                        self.perform_attack()
             
             # Controle de joystick - Ataque (Botão 2)
             if event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 1 and hasattr(self, 'player') and self.player.can_attack() and self.player.life > 0:  # Botão 2 (geralmente A no Xbox, X no PS)
                     self.player.last_attack_time = pygame.time.get_ticks()
-                    self.player_attack()
+                    self.perform_attack()
 
                 if event.button == 1 and hasattr(self, 'dialog_box') and self.dialog_box.active:
                     if self.dialog_box.text_progress < len(self.dialog_box.current_text):
@@ -370,16 +372,33 @@ class Game:
                         if not self.dialog_box.next_dialog():
                             self.dialog_box.close()
                 
-    def player_attack(self):
-        #""Centraliza a lógica de ataque para ser chamada tanto por teclado quanto por joystick"""
-        if self.player.facing == 'up':
-            Attack(self, self.player.rect.x, self.player.rect.y-35 )
-        elif self.player.facing == 'down':
-            Attack(self, self.player.rect.x, self.player.rect.y + 40)
-        elif self.player.facing == 'right':
-            Attack(self, self.player.rect.x + 40, self.player.rect.y)
-        elif self.player.facing == 'left':
-            Attack(self, self.player.rect.x - 30, self.player.rect.y)
+    def perform_attack(self):
+        """
+        Performs an attack based on the player's character type.
+        This is where you will add logic for other characters.
+        """
+        # --- SWORDSMAN ATTACK (Player 1) ---
+        if self.player.char_type == 'swordsman':
+            if self.player.facing == 'up':
+                SwordAttack(self, self.player.rect.x, self.player.rect.y - 35)
+            elif self.player.facing == 'down':
+                SwordAttack(self, self.player.rect.x, self.player.rect.y + 40)
+            elif self.player.facing == 'right':
+                SwordAttack(self, self.player.rect.x + 40, self.player.rect.y)
+            elif self.player.facing == 'left':
+                SwordAttack(self, self.player.rect.x - 30, self.player.rect.y)
+        
+        # --- ARCHER ATTACK (Player 2) - FUTURE IMPLEMENTATION ---
+        elif self.player.char_type == 'archer':
+            # TODO: Add logic to fire an arrow here.
+            # Example: Arrow(self, self.player.rect.centerx, self.player.rect.centery, self.player.facing)
+            print("Archer attack is not implemented yet.")
+
+        # --- TANK ATTACK (Player 3) - FUTURE IMPLEMENTATION ---
+        elif self.player.char_type == 'tank':
+            # TODO: Add logic for the tank's attack here.
+            # Example: GroundSlam(self, self.player.rect.center)
+            print("Tank attack is not implemented yet.")
 
     def update(self):
 
