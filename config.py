@@ -14,33 +14,60 @@ BLOCK_LAYER = 3
 GROUND_LAYER = 2
 ITEM_LAYER = 4
 
-PLAYER_LIFE = 20
-ENEMY_LIFE = 1
+#PLAYER_LIFE = 20
+ENEMY_LIFE = 12
 BAT_LIFE = 6
 
-PLAYER_SPEED = 4
+#PLAYER_SPEED = 4
 ENEMY_SPEED = 1.0
 BAT_SPEED = 5.5
 
 #DAMAGE
-PLAYER_DAMAGE = 10
+#PLAYER_DAMAGE = 4
 
-# Barra de cooldown do ataque
-ATTACK_BAR_WIDTH = 100
-ATTACK_BAR_HEIGHT = 15
-ATTACK_BAR_X = 10
-ATTACK_BAR_Y = 30  # Abaixo da barra de dodge (se você quiser manter ambas)
-ATTACK_BAR_COLOR = (255, 0, 0)   
-ATTACK_COOLDOWN_COLOR = (0, 255, 0)  
+# Adicione no config.py
+# Configurações da tela de seleção
+CHAR_SELECT_TITLE = "Escolha seu Jogador"
+CHAR_SELECT_FONT_SIZE = 36
+CHAR_DESC_FONT_SIZE = 22
+CHAR_ARROW_SIZE = 50
 
-# Cores da barra de dodge
-DODGE_BAR_WIDTH = 100
-DODGE_BAR_HEIGHT = 15
-DODGE_BAR_X = 10
-DODGE_BAR_Y = 10
-DODGE_BAR_COLOR = (0, 255, 0)    # Verde quando disponível
-DODGE_COOLDOWN_COLOR = (255, 0, 0)  # Vermelho durante cooldown
-DODGE_BAR_BG_COLOR = (50, 50, 50)   # Fundo cinza
+# Personagens
+# config.py (adicionar no final)
+
+# Atributos dos personagens
+PLAYER1_ATTR = {
+    "name": "Bebê Reborn",
+    "life": 18,
+    "damage": 4,
+    "speed": 5,
+    "sprite": "sprt/PLAYERS/single.png",
+    "description": "Ataques rápidos e precisos usando uma lâmina"
+}
+
+PLAYER2_ATTR = {
+    "name": "Müller",
+    "life": 18,
+    "damage": 3,
+    "speed": 5,
+    "sprite": "sprt/PLAYERS/player2tst.png",
+    "description": "Dispara flechas com uma mira precisa"
+}
+
+PLAYER3_ATTR = {
+    "name": "Blyat",
+    "life": 25,
+    "damage": 8,
+    "speed": 3,
+    "sprite": "sprt/PLAYERS/player3tst.png",
+    "description": "Alta resistência e força"
+}
+
+CHARACTERS = {
+    1: PLAYER1_ATTR,
+    2: PLAYER2_ATTR,
+    3: PLAYER3_ATTR
+}
 
 # Cooldowns das habilidades
 ATTACK_COOLDOWN = 1000  # 1 segundos em milissegundos
@@ -52,46 +79,69 @@ BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 BLACK = (0,0, 0)
 FPS = 45
+# --- Estética Estilo Pokémon ---
+UI_BORDER_WIDTH = 3
+UI_BORDER_COLOR = (248, 248, 248)      # Branco
+UI_BG_COLOR = (48, 80, 144, 230)       # Azul escuro, semi-transparente
+UI_FONT_COLOR = (248, 248, 248)      # Branco
+UI_TITLE_COLOR = (255, 215, 0)         # Dourado
+SELECTED_COLOR = (248, 248, 88)        # Amarelo brilhante
+DISABLED_COLOR = (120, 120, 120)       # Cinza para cooldown
 
-
+# --- Barras de Vida ---
 HEALTH_BAR_WIDTH = 40
-HEALTH_BAR_HEIGHT = 5
-HEALTH_BAR_OFFSET = 10  # Distância acima do sprite
-PLAYER_HEALTH_COLOR = (0, 255, 0)  # Verde
-ENEMY_HEALTH_COLOR = (255, 0, 0)   # Vermelho
-HEALTH_BAR_BG_COLOR = (50, 50, 50) # Cinza escuro
+HEALTH_BAR_HEIGHT = 8                  # Mais espessa para melhor visualização
+HEALTH_BAR_OFFSET = 12
+HEALTH_BAR_BG_COLOR = (88, 88, 88)     # Fundo cinza escuro
+HEALTH_COLOR_HIGH = (48, 216, 48)      # Verde para vida alta
+HEALTH_COLOR_MEDIUM = (248, 248, 88)   # Amarelo para vida média
+HEALTH_COLOR_LOW = (248, 56, 32)       # Vermelho para vida baixa
+HEALTH_BAR_BORDER_COLOR = (16, 16, 16) # Borda preta
 
-# Painel de Habilidades
-ABILITY_PANEL_WIDTH = 300
-ABILITY_PANEL_HEIGHT = 180
+# --- Barras de Habilidade ---
+BAR_WIDTH = 120
+BAR_HEIGHT = 15
+BAR_BG_COLOR = (50, 50, 50)
+# Cores do Ataque
+ATTACK_READY_COLOR = (248, 128, 72)     # Laranja/Vermelho
+ATTACK_COOLDOWN_COLOR = DISABLED_COLOR
+# Cores da Esquiva
+DODGE_READY_COLOR = (88, 168, 248)      # Azul brilhante
+DODGE_COOLDOWN_COLOR = DISABLED_COLOR
+
+
+# --- Painel de Habilidades ---
+ABILITY_PANEL_WIDTH = 280
+ABILITY_PANEL_HEIGHT = 200
 ABILITY_PANEL_X = WIN_WIDTH - ABILITY_PANEL_WIDTH - 10
 ABILITY_PANEL_Y = 10
-ABILITY_PANEL_COLOR = (50, 50, 50, 200)  # Cinza escuro semi-transparente
-ABILITY_TEXT_COLOR = WHITE
+ABILITY_PANEL_COLOR = UI_BG_COLOR
+ABILITY_TEXT_COLOR = UI_FONT_COLOR
+ABILITY_TITLE_FONT_SIZE = 22
+ABILITY_FONT_SIZE = 18
 
-# Melhorias do vendedor
-SHOP_BG_COLOR = (30, 30, 40, 200)  # Cor de fundo semi-transparente
-SHOP_TEXT_COLOR = WHITE
-SHOP_TITLE_COLOR = (255, 215, 0)  # Cor dourada para o título
-SHOP_OPTION_COLOR = (200, 200, 200)
-SHOP_SELECTED_COLOR = (55, 255, 55)  # Verde
-SHOP_OPTION_COLOR = (180, 180, 180)    # Cinza
-SHOP_FONT_SIZE = 24
-SHOP_TITLE_FONT_SIZE = 28
-SHOP_WIDTH = 300
-SHOP_HEIGHT = 300
+# --- Loja do Vendedor ---
+SHOP_WIDTH = 480
+SHOP_HEIGHT = 400
 SHOP_X = WIN_WIDTH // 2 - SHOP_WIDTH // 2
 SHOP_Y = WIN_HEIGHT // 2 - SHOP_HEIGHT // 2
+SHOP_BG_COLOR = UI_BG_COLOR
+SHOP_TEXT_COLOR = UI_FONT_COLOR
+SHOP_TITLE_COLOR = UI_TITLE_COLOR
+SHOP_OPTION_COLOR = UI_FONT_COLOR
+SHOP_SELECTED_COLOR = SELECTED_COLOR
+SHOP_FONT_SIZE = 22
+SHOP_TITLE_FONT_SIZE = 28
 
-# Diálogo
+# --- Caixa de Diálogo ---
 DIALOG_BOX_WIDTH = WIN_WIDTH - 40
-DIALOG_BOX_HEIGHT = 140  # Aumentei a altura para acomodar o texto adicional
+DIALOG_BOX_HEIGHT = 150
 DIALOG_BOX_X = 20
 DIALOG_BOX_Y = WIN_HEIGHT - DIALOG_BOX_HEIGHT - 20
-DIALOG_BOX_COLOR = (50, 50, 50)
-DIALOG_TEXT_COLOR = WHITE
-DIALOG_FONT_SIZE = 24
-DIALOG_SMALL_FONT_SIZE = 18  # Adicionei para o texto "APERTE ESPAÇO"
+DIALOG_BOX_COLOR = UI_BG_COLOR
+DIALOG_TEXT_COLOR = UI_FONT_COLOR
+DIALOG_FONT_SIZE = 26
+DIALOG_SMALL_FONT_SIZE = 20
 DIALOG_TEXT_MARGIN = 15
 DIALOG_TEXT_SPEED = 2
 
