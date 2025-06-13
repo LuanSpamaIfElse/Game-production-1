@@ -15,10 +15,10 @@ GROUND_LAYER = 2
 ITEM_LAYER = 4
 
 #PLAYER_LIFE = 20
-ENEMY_LIFE = 12
+ENEMY_LIFE = 1
 BAT_LIFE = 6
 
-#PLAYER_SPEED = 4
+#self.base_speed = 4
 ENEMY_SPEED = 1.0
 BAT_SPEED = 5.5
 
@@ -33,7 +33,6 @@ CHAR_DESC_FONT_SIZE = 22
 CHAR_ARROW_SIZE = 50
 
 # Personagens
-# config.py (adicionar no final)
 
 # Atributos dos personagens
 PLAYER1_ATTR = {
@@ -42,7 +41,8 @@ PLAYER1_ATTR = {
     "damage": 4,
     "speed": 5,
     "sprite": "sprt/PLAYERS/single.png",
-    "description": "Ataques rápidos e precisos usando uma lâmina"
+    "description": "Ataques rápidos e precisos usando uma lâmina",
+    "type": "swordsman"  # <-- ADD THIS LINE
 }
 
 PLAYER2_ATTR = {
@@ -51,7 +51,8 @@ PLAYER2_ATTR = {
     "damage": 3,
     "speed": 5,
     "sprite": "sprt/PLAYERS/player2tst.png",
-    "description": "Dispara flechas com uma mira precisa"
+    "description": "Dispara flechas com uma mira precisa",
+    "type": "archer"  # <-- ADD THIS LINE
 }
 
 PLAYER3_ATTR = {
@@ -60,7 +61,8 @@ PLAYER3_ATTR = {
     "damage": 8,
     "speed": 3,
     "sprite": "sprt/PLAYERS/player3tst.png",
-    "description": "Alta resistência e força"
+    "description": "Grande resistência e força",
+    "type": "tank"  # <-- ADD THIS LINE
 }
 
 CHARACTERS = {
