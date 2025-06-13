@@ -22,6 +22,8 @@ class Game:
         self.dialog_box = DialogBox(self)
         self.next_level_triggered = False
         
+        # Atributos do jogador (serão definidos na seleção)
+        self.player_attrs = {}  # Atributos serão preenchidos pela tela de seleção
         
         # Inicializa grupos de sprites
         self.all_sprites = pygame.sprite.LayeredUpdates()
@@ -32,18 +34,14 @@ class Game:
         self.npcs = pygame.sprite.LayeredUpdates()
         self.water = pygame.sprite.LayeredUpdates()
         
-        self.character_spritesheet = Spritesheet('sprt/img/character.png')
-        #terrenos
+        self.Player1_spritesheet = Spritesheet('sprt/img/character.png')
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
-        
         self.obstacle_spritesheet = Spritesheet('sprt/terrain/TreesSpr.png')
         self.portal_spritsheet = Spritesheet('sprt/terrain/portalpurplespr.png')
-
         self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
         self.enemycoin_spritesheet = Spritesheet('sprt/img/enemy.png')
         self.bat_spritesheet = Spritesheet('sprt/npc/bat.png')
         self.coin = Spritesheet('sprt/img/coin_spr.png')
-
         self.attack_spritsheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
         self.plant_spritesheet = Spritesheet('sprt/terrain/terrain.png')
         self.block_spritesheet = Spritesheet('sprt/terrain/terrain.png')
@@ -51,13 +49,148 @@ class Game:
         self.go_background = pygame.image.load('sprt/img/gameover.png')
         self.slimenpc = Spritesheet('sprt/npc/slime_spr.png')
         self.seller_spritesheet = Spritesheet('sprt/npc/seller.png')
-
-        #carregar sounds
-        
         
         self.ability_panel = AbilityPanel(self)
         self.current_level = 1
         self.max_levels = 8
+
+
+    def character_selection_screen(self):
+        selected = 1
+        
+        title_font = pygame.font.SysFont('arial', 48, bold=True)
+        char_font = pygame.font.SysFont('arial', 36)
+        desc_font = pygame.font.SysFont('arial', 24)
+        
+        left_btn = Button(100, WIN_HEIGHT//2, 50, 50, WHITE, BLACK, "<", 32)
+        right_btn = Button(WIN_WIDTH-150, WIN_HEIGHT//2, 50, 50, WHITE, BLACK, ">", 32)
+        play_btn = Button(WIN_WIDTH//2 - 60, WIN_HEIGHT - 100, 120, 50, WHITE, BLACK, "Jogar", 32)
+
+        # Carrega imagens dos personagens (como no seu código original)
+        
+        selecting = True
+        while selecting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+            
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_pressed = pygame.mouse.get_pressed()
+            
+            if left_btn.is_pressed(mouse_pos, mouse_pressed):
+                selected = (selected - 2) % len(CHARACTERS) + 1
+                pygame.time.delay(200)
+            if right_btn.is_pressed(mouse_pos, mouse_pressed):
+                selected = selected % len(CHARACTERS) + 1
+                pygame.time.delay(200)
+            if play_btn.is_pressed(mouse_pos, mouse_pressed):
+                self.player_attrs = CHARACTERS[selected]
+                selecting = False
+            
+            # FUNDO (primeiro)
+            self.screen.blit(self.intro_background, (0,0))
+            
+            # --- PAINEL COM TRANSPARÊNCIA IGUAL À LOJA ---
+            panel_width = 640
+            panel_height = 400
+            panel_x = WIN_WIDTH // 2 - panel_width // 2
+            panel_y = WIN_HEIGHT // 2 - panel_height // 2
+            
+            # Cria uma superfície com alpha
+            panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+            
+            # Preenche com a cor da loja (UI_BG_COLOR) com transparência
+            pygame.draw.rect(panel_surface, UI_BG_COLOR, (0, 0, panel_width, panel_height), border_radius=15)
+            
+            # Borda branca como na loja (UI_BORDER_COLOR)
+            pygame.draw.rect(panel_surface, UI_BORDER_COLOR, (0, 0, panel_width, panel_height), width=UI_BORDER_WIDTH, border_radius=15)
+            
+            # Desenha a superfície na tela
+            self.screen.blit(panel_surface, (panel_x, panel_y))
+            
+            # --- CONTEÚDO DO PAINEL ---
+            current_char = CHARACTERS[selected]
+            
+            # Título
+            title = title_font.render("Selecione seu personagem", True, UI_TITLE_COLOR)  # Usa a cor dourada do título
+            self.screen.blit(title, (WIN_WIDTH//2 - title.get_width()//2, panel_y +17))
+            
+            # Imagem do personagem (centralizada no painel) - AJUSTADO
+            try:
+                char_img = pygame.image.load(current_char["sprite"]).convert_alpha()
+                char_img = pygame.transform.scale(char_img, (200, 200))
+                # Modificado: de panel_y + 150 para panel_y + 160
+                img_rect = char_img.get_rect(center=(WIN_WIDTH//2, panel_y + 170))
+                self.screen.blit(char_img, img_rect)
+            except:
+                # Fallback se a imagem não carregar
+                placeholder = pygame.Surface((200, 200))
+                placeholder.fill(RED)
+                # Modificado: de panel_y + 50 para panel_y + 60
+                self.screen.blit(placeholder, (WIN_WIDTH//2 - 100, panel_y + 60))
+            
+            # Textos com as cores da UI - AJUSTADOS
+            name_text = char_font.render(current_char["name"], True, UI_FONT_COLOR)  # Branco
+            # Modificado: de panel_y + 250 para panel_y + 260
+            self.screen.blit(name_text, (WIN_WIDTH//2 - name_text.get_width()//2, panel_y + 280))
+            
+            stats_text = desc_font.render(
+                f"Vida: {current_char['life']} | Dano: {current_char['damage']} | Velocidade: {current_char['speed']}", 
+                True, SELECTED_COLOR  # Amarelo brilhante
+            )
+            # Modificado: de panel_y + 290 para panel_y + 300
+            self.screen.blit(stats_text, (WIN_WIDTH//2 - stats_text.get_width()//2, panel_y + 320))
+            
+            desc_text = desc_font.render(current_char["description"], True, UI_FONT_COLOR)  # Branco
+            # Modificado: de panel_y + 320 para panel_y + 330
+            self.screen.blit(desc_text, (WIN_WIDTH//2 - desc_text.get_width()//2, panel_y + 350))
+            
+            # Botões
+            self.screen.blit(left_btn.image, left_btn.rect)
+            self.screen.blit(right_btn.image, right_btn.rect)
+            self.screen.blit(play_btn.image, play_btn.rect)
+            
+            pygame.display.update()
+            self.clock.tick(FPS)
+    
+    def start_game(self):
+        """Inicia o jogo com o personagem selecionado"""
+        try:
+            pygame.mixer.music.load(MUSIC_LEVELS[1])
+            pygame.mixer.music.play(-1)
+            pygame.mixer.music.set_volume(0.15)
+        except Exception as e:
+            print(f"Erro ao carregar música: {e}")
+        
+        self.new()
+
+    def intro_screen(self):
+        intro = True
+        
+        title = self.font.render('GameAdventure', True, BLACK)
+        title_rect = title.get_rect(x=10, y=10)
+
+        play_button = Button(WIN_WIDTH/2, WIN_HEIGHT/2, 100, 50, WHITE, BLACK, 'Play', 32)
+        
+        while intro:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    intro = False
+                    self.running = False
+
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_pressed = pygame.mouse.get_pressed()
+
+            if play_button.is_pressed(mouse_pos, mouse_pressed):
+                self.character_selection_screen()  # Chama a nova tela de seleção
+                intro = False
+            
+            #self.screen.blit(self.intro_background, (0,0))
+            self.screen.blit(title, title_rect)
+            self.screen.blit(play_button.image, play_button.rect)
+            self.clock.tick(FPS)
+            pygame.display.update()
 
     def next_level(self):
         player_life = self.player.life if hasattr(self, 'player') else PLAYER_LIFE
@@ -378,8 +511,9 @@ class Game:
                 portal.active = True
 # Inicializando o jogo
 g = Game()
-g.intro_screen()
-g.new()  # Corrigido: agora o método é chamado corretamente
+g.character_selection_screen()  # Mostra a seleção primeiro
+g.new()  # Inicia o jogo com o personagem selecionado
+
 while g.running:
     g.main()
     g.game_over()
