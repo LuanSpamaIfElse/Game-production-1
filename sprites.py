@@ -1,4 +1,3 @@
-
 import pygame
 import pygame.sprite
 from config import *
@@ -19,11 +18,11 @@ class Spritesheet:
 class Player(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
-        self.damage = PLAYER_DAMAGE
         self._layer = PLAYER_LAYER
         self.groups = [self.game.all_sprites]  #uma lista
         pygame.sprite.Sprite.__init__(self, self.groups)
 
+        self.char_type = self.game.player_attrs.get('type', 'swordsman')
         self.max_life = self.game.player_attrs.get('life', 20) # Pega a vida do personagem, com um padrão de 20
         self.life = self.max_life
         self.damage = self.game.player_attrs.get('damage', 4) # Pega o dano, com um padrão de 4
@@ -44,7 +43,6 @@ class Player(pygame.sprite.Sprite):
         self.coins = 10
 
         #lentidão agua
-        self.base_speed = PLAYER_SPEED
         self.slow_modifier = 0.5  # Reduz a velocidade pela metade na água
         self.is_in_water = False
         self.last_water_damage_time = 0  # Controla se está na água
@@ -76,7 +74,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.x = self.x
         self.rect.y = self.y
 
-        self.life = PLAYER_LIFE  # Adicione esta linha
+        self.life = self.max_life # Adicione esta linha
         self.invulnerable = False
         self.invulnerable_time = 0
         self.damage = 1  # Dano base
@@ -120,6 +118,8 @@ class Player(pygame.sprite.Sprite):
         return current_time - self.last_attack_time >= ATTACK_COOLDOWN * self.attack_cooldown_multiplier
         
     def can_dodge(self):
+        if self.char_type != 'swordsman':
+            return False
         return pygame.time.get_ticks() - self.last_dodge_time >= self.dodge_cooldown * self.dodge_cooldown_multiplier
 
     def get_attack_cooldown_ratio(self):
@@ -264,14 +264,15 @@ class Player(pygame.sprite.Sprite):
                 self.facing = 'down' if axis_y > 0 else 'up'
         
         # Esquiva (código de movimento continua o mesmo)
-        if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) and self.can_dodge():
-            self.last_dodge_time = pygame.time.get_ticks()
-            self.x_change *= self.dodge_speed_multiplier
-            self.y_change *= self.dodge_speed_multiplier
-        if hasattr(self.game, 'joystick') and self.game.joystick and self.game.joystick.get_button(2) and self.can_dodge():
-            self.last_dodge_time = pygame.time.get_ticks()
-            self.x_change *= self.dodge_speed_multiplier
-            self.y_change *= self.dodge_speed_multiplier
+        if self.char_type == 'swordsman':
+            if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) and self.can_dodge():
+                self.last_dodge_time = pygame.time.get_ticks()
+                self.x_change *= self.dodge_speed_multiplier
+                self.y_change *= self.dodge_speed_multiplier
+            if hasattr(self.game, 'joystick') and self.game.joystick and self.game.joystick.get_button(2) and self.can_dodge():
+                self.last_dodge_time = pygame.time.get_ticks()
+                self.x_change *= self.dodge_speed_multiplier
+                self.y_change *= self.dodge_speed_multiplier
 
     def kill(self):
         super().kill()
@@ -294,21 +295,21 @@ class Player(pygame.sprite.Sprite):
             if self.x_change > 0:
                 self.rect.x = hits[0].rect.left - self.rect.width
                 for sprite in self.game.all_sprites:
-                    sprite.rect.x += PLAYER_SPEED
+                    sprite.rect.x += self.base_speed
             if self.x_change < 0:
                 self.rect.x = hits[0].rect.right
                 for sprite in self.game.all_sprites:
-                    sprite.rect.x -= PLAYER_SPEED
+                    sprite.rect.x -= self.base_speed
 
         if direction == "y" and hits:
             if self.y_change > 0:
                 self.rect.y = hits[0].rect.top - self.rect.height
                 for sprite in self.game.all_sprites:
-                    sprite.rect.y += PLAYER_SPEED
+                    sprite.rect.y += self.base_speed
             if self.y_change < 0:
                 self.rect.y = hits[0].rect.bottom
                 for sprite in self.game.all_sprites:
-                    sprite.rect.y -= PLAYER_SPEED
+                    sprite.rect.y -= self.base_speed
     
     def collide_obstacle (self, direction):
         if direction == "x":
@@ -317,11 +318,11 @@ class Player(pygame.sprite.Sprite):
                 if self.x_change > 0:
                     self.rect.x = hits[0].rect.left - self.rect.width
                     for sprite in self.game.all_sprites:
-                        sprite.rect.x += PLAYER_SPEED
+                        sprite.rect.x += self.base_speed
                 if self.x_change < 0:
                     self.rect.x = hits[0].rect.right
                     for sprite in self.game.all_sprites:
-                        sprite.rect.x -= PLAYER_SPEED
+                        sprite.rect.x -= self.base_speed
 
         if direction == "y":
             hits = pygame.sprite.spritecollide(self, self.game.obstacle, False)
@@ -329,11 +330,11 @@ class Player(pygame.sprite.Sprite):
                 if self.y_change > 0:
                     self.rect.y = hits[0].rect.top - self.rect.height
                     for sprite in self.game.all_sprites:
-                        sprite.rect.y += PLAYER_SPEED
+                        sprite.rect.y += self.base_speed
                 if self.y_change < 0:
                     self.rect.y = hits[0].rect.bottom
                     for sprite in self.game.all_sprites:
-                        sprite.rect.y -= PLAYER_SPEED
+                        sprite.rect.y -= self.base_speed
 
         
     def draw(self, surface):
@@ -1173,7 +1174,7 @@ class Button:
             return False
         return False
 
-class Attack(pygame.sprite.Sprite):
+class SwordAttack(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = PLAYER_LAYER
@@ -1470,17 +1471,17 @@ class Seller1NPC(pygame.sprite.Sprite): #vendedor dialogo
         self.in_range = False
         self.can_interact = True  # Adicione esta linha para definir o atributo
         self.last_interact_time = 1
-        self.interact_cooldown = 1000  # 1 segundo de cooldown
+        self.interact_cooldown = 0.5  # 0.5 segundo de cooldown
         
     def next_dialog(self):
-        """Avança para o próximo diálogo na sequência"""
+        #"""Avança para o próximo diálogo na sequência"""
         self.current_dialog_index += 1
         if self.current_dialog_index < len(self.dialog_sequence):
             return True
         return False
     
     def get_current_dialog(self):
-        """Retorna o diálogo atual"""
+        #"""Retorna o diálogo atual"""
         if self.current_dialog_index < len(self.dialog_sequence):
             return self.dialog_sequence[self.current_dialog_index]
         return None
@@ -1556,7 +1557,7 @@ class Seller2NPC(pygame.sprite.Sprite):
     def upgrade_health(self, player):
         if player.coins >= 5:
             player.coins -= 5
-            player.life = PLAYER_LIFE
+            player.life = self.game.player.max_life
             return True
         return False
     
