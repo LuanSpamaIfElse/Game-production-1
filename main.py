@@ -1,541 +1,1720 @@
+
 import pygame
-import sys
-from sprites import *
+import pygame.sprite
 from config import *
+import math
+import random
 
 
+class Spritesheet:
+    def __init__(self, file):
+        self.sheet = pygame.image.load(file).convert_alpha()
 
-class Game:
-    def __init__(self):
-        pygame.mixer.init()
-        pygame.init()
-        pygame.joystick.init()
-        self.joystick = None
-        if pygame.joystick.get_count() > 0:
-            self.joystick = pygame.joystick.Joystick(0)
-            self.joystick.init()
-            print(f"Joystick conectado: {self.joystick.get_name()}")
-        self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
-        self.clock = pygame.time.Clock()
-        self.running = True
-        self.font = pygame.font.SysFont('arial.ttf', 32)
-        self.dialog_box = DialogBox(self)
-        self.next_level_triggered = False
+    def get_sprite(self, x, y, width, height):
+        sprite = pygame.Surface([width, height], pygame.SRCALPHA)  # transparência
+        sprite.blit(self.sheet, (0, 0), (x, y, width, height))
+        return sprite
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = PLAYER_LAYER
+        self.groups = [self.game.all_sprites]  #uma lista
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.char_type = self.game.player_attrs.get('type', 'swordsman')
+        self.max_life = self.game.player_attrs.get('life', 20) # Pega a vida do personagem, com um padrão de 20
+        self.life = self.max_life
+        self.damage = self.game.player_attrs.get('damage', 4) # Pega o dano, com um padrão de 4
+        self.base_speed = self.game.player_attrs.get('speed', 4) # Pega a velocidade, com um padrão de 4
+        sprite_path = self.game.player_attrs.get('sprite', 'sprt/PLAYERS/single.png') # Pega o caminho do sprite
         
-        # Atributos do jogador (serão definidos na seleção)
-        self.player_attrs = {}  # Atributos serão preenchidos pela tela de seleção
+        # Carrega a spritesheet correta para o personagem
+        self.Player1_spritesheet = Spritesheet(sprite_path)
         
-        # Inicializa grupos de sprites
-        self.all_sprites = pygame.sprite.LayeredUpdates()
-        self.blocks = pygame.sprite.LayeredUpdates()
-        self.enemies = pygame.sprite.LayeredUpdates()
-        self.bats = pygame.sprite.LayeredUpdates()
-        self.attacks = pygame.sprite.LayeredUpdates()
-        self.npcs = pygame.sprite.LayeredUpdates()
-        self.water = pygame.sprite.LayeredUpdates()
-        
-        self.Player1_spritesheet = Spritesheet('sprt/img/character.png')
-        self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
-        self.obstacle_spritesheet = Spritesheet('sprt/terrain/TreesSpr.png')
-        self.portal_spritsheet = Spritesheet('sprt/terrain/portalpurplespr.png')
-        self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
-        self.enemycoin_spritesheet = Spritesheet('sprt/img/enemy.png')
-        self.bat_spritesheet = Spritesheet('sprt/npc/bat.png')
-        self.coin = Spritesheet('sprt/img/coin_spr.png')
-        self.attack_spritsheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
-        self.plant_spritesheet = Spritesheet('sprt/terrain/terrain.png')
-        self.block_spritesheet = Spritesheet('sprt/terrain/terrain.png')
-        self.intro_background = pygame.image.load('sprt/img/introbackground.png')
-        self.go_background = pygame.image.load('sprt/img/gameover.png')
-        self.slimenpc = Spritesheet('sprt/npc/slime_spr.png')
-        self.seller_spritesheet = Spritesheet('sprt/npc/seller.png')
-        
-        self.ability_panel = AbilityPanel(self)
-        self.current_level = 1
-        self.max_levels = 8
+        # Propriedades básicas
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        self.x_change = 0
+        self.y_change = 0
+        self.facing = 'down'
+        self.coins = 10
 
+        #lentidão agua
+        self.slow_modifier = 0.5  # Reduz a velocidade pela metade na água
+        self.is_in_water = False
+        self.last_water_damage_time = 0  # Controla se está na água
 
-    def character_selection_screen(self):
-        selected = 1
+        # Sistema de cooldown
+
+        self.last_attack_time = 0
+        self.last_dodge_time = 0
+        self.is_dodging = False
+        self.dodge_duration = 500
+        self.dodge_speed_multiplier = 10
         
+        # Dodge Bar (esquiva)
+        self.dodge_cooldown = DODGE_COOLDOWN
+        self.last_dodge_time = -DODGE_COOLDOWN  
         
-        title_font = pygame.font.SysFont('arial', 48, bold=True)
-        char_font = pygame.font.SysFont('arial', 36)
-        desc_font = pygame.font.SysFont('arial', 24)
+        # Sistema de animação
+        self.animation_speed = 10
+        self.animation_counter = 0
+        self.current_frame = 0
         
-        left_btn = Button(100, WIN_HEIGHT//2, 50, 50, WHITE, BLACK, "<", 32)
-        right_btn = Button(WIN_WIDTH-150, WIN_HEIGHT//2, 50, 50, WHITE, BLACK, ">", 32)
-        play_btn = Button(WIN_WIDTH//2 - 60, WIN_HEIGHT - 100, 120, 50, WHITE, BLACK, "Jogar", 32)
-
-        # Carrega imagens dos personagens (como no seu código original)
+        # Carregar animações
+        self.load_animations()
         
-        selecting = True
-        while selecting:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-            
-            mouse_pos = pygame.mouse.get_pos()
-            mouse_pressed = pygame.mouse.get_pressed()
-            
-            if left_btn.is_pressed(mouse_pos, mouse_pressed):
-                selected = (selected - 2) % len(CHARACTERS) + 1
-                pygame.time.delay(200)
-            if right_btn.is_pressed(mouse_pos, mouse_pressed):
-                selected = selected % len(CHARACTERS) + 1
-                pygame.time.delay(200)
-            if play_btn.is_pressed(mouse_pos, mouse_pressed):
-                self.player_attrs = CHARACTERS[selected]
-                selecting = False
-            
-            # FUNDO (primeiro)
-            self.screen.blit(self.intro_background, (0,0))
-            
-            # --- PAINEL COM TRANSPARÊNCIA IGUAL À LOJA ---
-            panel_width = 640
-            panel_height = 400
-            panel_x = WIN_WIDTH // 2 - panel_width // 2
-            panel_y = WIN_HEIGHT // 2 - panel_height // 2
-            
-            # Cria uma superfície com alpha
-            panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-            
-            # Preenche com a cor da loja (UI_BG_COLOR) com transparência
-            pygame.draw.rect(panel_surface, UI_BG_COLOR, (0, 0, panel_width, panel_height), border_radius=15)
-            
-            # Borda branca como na loja (UI_BORDER_COLOR)
-            pygame.draw.rect(panel_surface, UI_BORDER_COLOR, (0, 0, panel_width, panel_height), width=UI_BORDER_WIDTH, border_radius=15)
-            
-            # Desenha a superfície na tela
-            self.screen.blit(panel_surface, (panel_x, panel_y))
-            
-            # --- CONTEÚDO DO PAINEL ---
-            current_char = CHARACTERS[selected]
-            
-            # Título
-            title = title_font.render("Selecione seu personagem", True, UI_TITLE_COLOR)  # Usa a cor dourada do título
-            self.screen.blit(title, (WIN_WIDTH//2 - title.get_width()//2, panel_y +17))
-            
-            # Imagem do personagem (centralizada no painel) - AJUSTADO
-            try:
-                char_img = pygame.image.load(current_char["sprite"]).convert_alpha()
-                char_img = pygame.transform.scale(char_img, (200, 200))
-                # Modificado: de panel_y + 150 para panel_y + 160
-                img_rect = char_img.get_rect(center=(WIN_WIDTH//2, panel_y + 170))
-                self.screen.blit(char_img, img_rect)
-            except:
-                # Fallback se a imagem não carregar
-                placeholder = pygame.Surface((200, 200))
-                placeholder.fill(RED)
-                # Modificado: de panel_y + 50 para panel_y + 60
-                self.screen.blit(placeholder, (WIN_WIDTH//2 - 100, panel_y + 60))
-            
-            # Textos com as cores da UI - AJUSTADOS
-            name_text = char_font.render(current_char["name"], True, UI_FONT_COLOR)  # Branco
-            # Modificado: de panel_y + 250 para panel_y + 260
-            self.screen.blit(name_text, (WIN_WIDTH//2 - name_text.get_width()//2, panel_y + 280))
-            
-            stats_text = desc_font.render(
-                f"Vida: {current_char['life']} | Dano: {current_char['damage']} | Velocidade: {current_char['speed']}", 
-                True, SELECTED_COLOR  # Amarelo brilhante
-            )
-            # Modificado: de panel_y + 290 para panel_y + 300
-            self.screen.blit(stats_text, (WIN_WIDTH//2 - stats_text.get_width()//2, panel_y + 320))
-            
-            desc_text = desc_font.render(current_char["description"], True, UI_FONT_COLOR)  # Branco
-            # Modificado: de panel_y + 320 para panel_y + 330
-            self.screen.blit(desc_text, (WIN_WIDTH//2 - desc_text.get_width()//2, panel_y + 350))
-            
-            # Botões
-            self.screen.blit(left_btn.image, left_btn.rect)
-            self.screen.blit(right_btn.image, right_btn.rect)
-            self.screen.blit(play_btn.image, play_btn.rect)
-            
-            
-            pygame.display.update()
-            self.clock.tick(FPS)
-    
-    
+        # Imagem inicial
+        self.image = self.animation_frames['down'][0]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
 
-    def intro_screen(self):
-        intro = True
+        self.life = self.max_life # Adicione esta linha
+        self.invulnerable = False
+        self.invulnerable_time = 0
+        self.damage = 1  # Dano base
+        self.speed_boost = 0  # Bônus de velocidade
+        self.attack_cooldown_multiplier = 1.0  # Multiplicador de cooldown
+        self.dodge_cooldown_multiplier = 1.0  # Multiplicador de cooldown
+
+    def draw_health_bar(self, surface, offset=(0, 0)):
+        bar_x = self.rect.x + offset[0] + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y + offset[1] - HEALTH_BAR_OFFSET
         
-        title = self.font.render('GameAdventure', True, BLACK)
-        title_rect = title.get_rect(x=10, y=10)
+        border_rect = pygame.Rect(bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT)
+        bg_rect = border_rect.inflate(-2, -2)
 
-        play_button = Button(WIN_WIDTH/2, WIN_HEIGHT/2, 100, 50, WHITE, BLACK, 'Play', 32)
-        
-        while intro:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    intro = False
-                    self.running = False
-
-            mouse_pos = pygame.mouse.get_pos()
-            mouse_pressed = pygame.mouse.get_pressed()
-
-            if play_button.is_pressed(mouse_pos, mouse_pressed):
-                self.character_selection_screen()  # Chama a nova tela de seleção
-                intro = False
-            
-            #self.screen.blit(self.intro_background, (0,0))
-            self.screen.blit(title, title_rect)
-            self.screen.blit(play_button.image, play_button.rect)
-            self.clock.tick(FPS)
-            pygame.display.update()
-    def start_game(self):
-        """Inicia o jogo com o personagem selecionado"""
-        try:
-            pygame.mixer.music.load(MUSIC_LEVELS[1])
-            pygame.mixer.music.play(-1)
-            pygame.mixer.music.set_volume(0.15)
-        except Exception as e:
-            print(f"Erro ao carregar música: {e}")
-        
-        self.new()
-    def next_level(self):
-        player_life = self.player.life if hasattr(self, 'player') else PLAYER_LIFE
-        player_coins = self.player.coins if hasattr(self, 'player') else 0
-
-        # Limpa todos os sprites
-        self.all_sprites.empty()
-        self.blocks.empty()
-        self.bat.empty()
-        self.enemies.empty()
-        self.attacks.empty()
-        self.npcs.empty()
-        self.water.empty()
-
-        # Verifica se deve carregar a loja ou o próximo nível normal
-        if getattr(self, 'loading_store', False):
-            # Jogador está na loja, agora deve avançar para o próximo level normal
-            self.loading_store = False
-            self.current_level += 1
-            next_map = self.current_level
-            music = MUSIC_LEVELS.get(self.current_level, MUSIC_LEVELS[1])
-            create_player = True
+        health_ratio = self.life / self.max_life
+        if health_ratio > 0.6:
+            health_color = HEALTH_COLOR_HIGH
+        elif health_ratio > 0.3:
+            health_color = HEALTH_COLOR_MEDIUM
         else:
-            # Jogador terminou level normal, agora vai para a loja
-            self.loading_store = True
-            next_map = 'store'
-            music = MUSIC_LEVELS.get('store')
-            create_player = True
+            health_color = HEALTH_COLOR_LOW
 
-        if self.current_level > self.max_levels:
-            print("Todos os níveis completados!")
-            return
-
-        print(f"Loading {next_map}")
-
-        # Cria o mapa
-        self.createTilemap(create_player=create_player, force_map=next_map)
-
-        # Mantém a vida e moedas do jogador
-        if hasattr(self, 'player'):
-            self.player.life = player_life
-            self.player.coins = player_coins
-
-        # Toca a música
-        if music:
-            try:
-                pygame.mixer.music.load(music)
-                pygame.mixer.music.play(-1)
-                pygame.mixer.music.set_volume(0.15)
-            except Exception as e:
-                print(f"Erro ao carregar música: {e}")
-
-
-                
-    def createTilemap(self, create_player=True, force_map=None):
-        try:
-            # Determina qual mapa usar
-            if force_map == 'store':
-                current_tilemap = store
-            elif self.current_level == 1:
-                current_tilemap = tilemap
-            elif self.current_level == 2:
-                current_tilemap = tilemap2
-            elif self.current_level == 3:
-                current_tilemap = tilemap3
-            
-            # Restante do método permanece o mesmo...
-            # Cria uma cópia do tilemap para modificar
-            temp_tilemap = [list(row) for row in current_tilemap]
-            obstacle_positions = []
-            
-            # Só adiciona obstáculos se não for a loja
-            if force_map != 'store' and self.current_level != 2:
-                while len(obstacle_positions) < OBSTACLE_COUNT:
-                    x = random.randint(0, len(temp_tilemap[0]) - 1)
-                    y = random.randint(0, len(temp_tilemap) - 1)
-                    if temp_tilemap[y][x] == '.':
-                        temp_tilemap[y][x] = 'O'
-                        obstacle_positions.append((x, y))
-            
-            # Cria os sprites baseados no tilemap
-            for i, row in enumerate(temp_tilemap):
-                for j, column in enumerate(row):
-                    Ground1(self, j, i)
-                    if column == "B":
-                        Block(self, j, i)
-                    if column == "E" and force_map != 'store':  # Só inimigos fora da loja
-                        enemy(self, j, i)
-                    if column == "C" and force_map != 'store':
-                        EnemyCoin(self, j, i)
-                    if column == "P" and create_player:
-                        self.player = Player(self, j, i)
-                    if column == "Q":
-                        Plant(self, j, i)
-                    if column == "O" and force_map != 'store' and self.current_level != 2:  # Só obstáculos fora da loja
-                        Obstacle(self, j, i)
-                    if column == "S":
-                        SlimeNPC(self, j, i)
-                    if column == "T":
-                        Portal(self, j, i)
-                    if column == "M":
-                        Seller1NPC(self, j, i)
-                    if column == "V":
-                        Seller2NPC(self, j, i)
-                    if column == "W":
-                        Water1(self, j, i)
-                    if column == "G" and self.current_level == 3:
-                        Bat(self, j, i)
-                        
-        except Exception as e:
-            print(f"Erro ao criar tilemap: {e}")
-            # Tenta recarregar o nível anterior
-            if self.current_level > 1:
-                self.current_level -= 1
-                self.createTilemap(create_player)
-            else:
-                # Fallback para um mapa básico se o nível 1 também falhar
-                temp_tilemap = [["." for _ in range(10)] for _ in range(10)]
-                if create_player:
-                    temp_tilemap[5][5] = "P"  # Adiciona o player
-                self.createTilemap(create_player)
-
-    def new(self):
-    #"""Inicia um novo jogo"""
-        pygame.mixer.init()
-        self.playing = True
-        self.current_level = 1  # Sempre começa no nível 1
+        health_width = int(bg_rect.width * health_ratio)
+        health_rect = pygame.Rect(bg_rect.x, bg_rect.y, health_width, bg_rect.height)
         
-        # Limpa todos os sprites
-        self.all_sprites = pygame.sprite.LayeredUpdates()
-        self.blocks = pygame.sprite.LayeredUpdates()
-        self.enemies = pygame.sprite.LayeredUpdates()
-        self.bat = pygame.sprite.LayeredUpdates()
-        self.attacks = pygame.sprite.LayeredUpdates()
-        self.npcs = pygame.sprite.LayeredUpdates()
+        pygame.draw.rect(surface, HEALTH_BAR_BORDER_COLOR, border_rect)
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, bg_rect)
+        if health_width > 0:
+            pygame.draw.rect(surface, health_color, health_rect)
+
+    def take_damage(self):
+        if not self.invulnerable:
+            self.life -= 1
+            self.invulnerable = True
+            self.invulnerable_time = pygame.time.get_ticks()
+            if self.life <= 0:
+                self.kill()
+
+    def can_attack(self):
+        current_time = pygame.time.get_ticks()
+        return current_time - self.last_attack_time >= ATTACK_COOLDOWN * self.attack_cooldown_multiplier
         
-        # Cria o tilemap inicial (cria jogador automaticamente)
-        self.createTilemap(create_player=True)
-            
+    def can_dodge(self):
+        if self.char_type != 'swordsman':
+            return False
+        return pygame.time.get_ticks() - self.last_dodge_time >= self.dodge_cooldown * self.dodge_cooldown_multiplier
 
-    def events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-                self.playing = False
-                return
+    def get_attack_cooldown_ratio(self):
+        elapsed = pygame.time.get_ticks() - self.last_attack_time
+        return min(elapsed / (ATTACK_COOLDOWN * self.attack_cooldown_multiplier), 1.0)
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_F11:
-                    if self.screen.get_flags() & pygame.FULLSCREEN:
-                        self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
-                    else:
-                        self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT), pygame.FULLSCREEN)
-                if event.key == pygame.K_SPACE:
-                    if hasattr(self, 'dialog_box') and self.dialog_box.active:
-                        if self.dialog_box.text_progress < len(self.dialog_box.current_text):
-                            self.dialog_box.text_progress = len(self.dialog_box.current_text)
-                            self.dialog_box.visible_text = self.dialog_box.current_text
-                        else:
-                            if not self.dialog_box.next_dialog():
-                                self.dialog_box.close()
-                    elif hasattr(self, 'player') and self.player.can_attack() and self.player.life > 0:
-                        self.player.last_attack_time = pygame.time.get_ticks()
-                        self.perform_attack()
-            
-            # Controle de joystick - Ataque (Botão 2)
-            if event.type == pygame.JOYBUTTONDOWN:
-                if event.button == 1 and hasattr(self, 'player') and self.player.can_attack() and self.player.life > 0:  # Botão 2 (geralmente A no Xbox, X no PS)
-                    self.player.last_attack_time = pygame.time.get_ticks()
-                    self.perform_attack()
+    def get_dodge_cooldown_ratio(self):
+        elapsed = pygame.time.get_ticks() - self.last_dodge_time
+        return min(elapsed / (self.dodge_cooldown * self.dodge_cooldown_multiplier), 1.0)
+    
+    def load_animations(self):
+        self.animation_frames = {
+            'left': [
+                self.game.Player1_spritesheet.get_sprite(3, 98, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(35, 98, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(68, 98, self.width, self.height)
+            ],
+            'right': [
+                self.game.Player1_spritesheet.get_sprite(3, 66, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(35, 66, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(68, 66, self.width, self.height)
+            ],
+            'up': [
+                self.game.Player1_spritesheet.get_sprite(3, 35, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(35, 35, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(68, 35, self.width, self.height)
+            ],
+            'down': [
+                self.game.Player1_spritesheet.get_sprite(3, 2, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(35, 2, self.width, self.height),
+                self.game.Player1_spritesheet.get_sprite(65, 2, self.width, self.height)
+            ]
+        }
 
-                if event.button == 1 and hasattr(self, 'dialog_box') and self.dialog_box.active:
-                    if self.dialog_box.text_progress < len(self.dialog_box.current_text):
-                        self.dialog_box.text_progress = len(self.dialog_box.current_text)
-                        self.dialog_box.visible_text = self.dialog_box.current_text
-                    else:
-                        if not self.dialog_box.next_dialog():
-                            self.dialog_box.close()
-                
-    def perform_attack(self):
-        """
-        Performs an attack based on the player's character type.
-        This is where you will add logic for other characters.
-        """
-        # --- SWORDSMAN ATTACK (Player 1) ---
-        if self.player.char_type == 'swordsman':
-            if self.player.facing == 'up':
-                SwordAttack(self, self.player.rect.x, self.player.rect.y - 35)
-            elif self.player.facing == 'down':
-                SwordAttack(self, self.player.rect.x, self.player.rect.y + 40)
-            elif self.player.facing == 'right':
-                SwordAttack(self, self.player.rect.x + 40, self.player.rect.y)
-            elif self.player.facing == 'left':
-                SwordAttack(self, self.player.rect.x - 30, self.player.rect.y)
+    def animate(self):
+        self.animation_counter += 1
         
-        # --- ARCHER ATTACK (Player 2) - FUTURE IMPLEMENTATION ---
-        elif self.player.char_type == 'archer':
-            # TODO: Add logic to fire an arrow here.
-            # Example: Arrow(self, self.player.rect.centerx, self.player.rect.centery, self.player.facing)
-            print("Archer attack is not implemented yet.")
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            frames = self.animation_frames.get(self.facing, [self.image])
+            self.current_frame = (self.current_frame + 1) % len(frames)
+            self.image = frames[self.current_frame]
+            self.image.set_colorkey(BLACK)
+            
+            # Atualiza rect mantendo a posição
+            old_center = self.rect.center if hasattr(self, 'rect') else (self.x, self.y)
+            self.rect = self.image.get_rect()
+            self.rect.center = old_center
 
-        # --- TANK ATTACK (Player 3) - FUTURE IMPLEMENTATION ---
-        elif self.player.char_type == 'tank':
-            # TODO: Add logic for the tank's attack here.
-            # Example: GroundSlam(self, self.player.rect.center)
-            print("Tank attack is not implemented yet.")
+    def handle_water(self):
+        #""Verifica colisão com água e aplica efeitos (lentidão + dano)."""
+        # Define uma "área de colisão" apenas na parte inferior do jogador
+        bottom_half_rect = pygame.Rect(
+            self.rect.left,
+            self.rect.centery,
+            self.rect.width,
+            self.rect.height / 2
+        )
+
+        self.is_in_water = any(water.rect.colliderect(bottom_half_rect) for water in self.game.water)
+
+        
+        # Aplica dano de 1 por segundo
+        if self.is_in_water:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.last_water_damage_time >= 1700:  # 1.7segundo
+                self.take_damage()
+                self.last_water_damage_time = current_time
 
     def update(self):
+        self.movement()
+        self.animate()
+        self.handle_water()
+        self.collide_enemy()
+        # Aplica o movimento
+        self.rect.x += self.x_change
+        self.collide_blocks('x')
+        self.x = self.rect.x
 
-        shop_active = any(isinstance(npc, Seller2NPC) and npc.shop_active for npc in self.npcs)
+        self.rect.y += self.y_change
+        self.collide_blocks('y')
+        self.y = self.rect.y
         
-        # Atualiza todos os sprites, exceto o player se a loja estiver ativa
-        for sprite in self.all_sprites:
-            if not (shop_active and isinstance(sprite, Player)):
-                sprite.update()
-        # Atualizações do game loop
-        self.all_sprites.update()
-    # Verifica inimigos e spawna portal se necessário
-        self.check_enemies_and_spawn_portal()
+        # Verifica se está na água e causa dano (1 por segundo)
+        bottom_half_rect = pygame.Rect(
+            self.rect.left,
+            self.rect.centery,
+            self.rect.width,
+            self.rect.height / 2
+        )
+        if any(water.rect.colliderect(bottom_half_rect) for water in self.game.water):
+
+            current_time = pygame.time.get_ticks()
+            if not hasattr(self, 'last_water_damage_time'):
+                self.last_water_damage_time = current_time
+            if current_time - self.last_water_damage_time >= 150:  # 1/2 segundo
+                self.take_damage()
+                self.last_water_damage_time = current_time
+        
+        # Remove invulnerabilidade após 1 segundo
+        if self.invulnerable and pygame.time.get_ticks() - self.invulnerable_time > 1000:
+            self.invulnerable = False
+        
+        # Reseta os valores de movimento após cada frame
+        self.x_change = 0
+        self.y_change = 0
+
+    def movement(self):
+        shop_active = any(isinstance(npc, Seller2NPC) and npc.shop_active for npc in self.game.npcs)
+        if shop_active:
+            return
+
+        keys = pygame.key.get_pressed()
+        self.x_change, self.y_change = 0, 0
+        
+        current_speed = (self.base_speed + self.speed_boost) * (self.slow_modifier if self.is_in_water else 1)
+
+        # Teclado (código de movimento continua o mesmo)
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            self.x_change -= current_speed
+            self.facing = 'left'
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            self.x_change += current_speed
+            self.facing = 'right'
+        if keys[pygame.K_w] or keys[pygame.K_UP]:
+            self.y_change -= current_speed
+            self.facing = 'up'
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
+            self.y_change += current_speed
+            self.facing = 'down'
+        
+        # Joystick (código de movimento continua o mesmo)
+        if hasattr(self.game, 'joystick') and self.game.joystick:
+            axis_x = self.game.joystick.get_axis(0)
+            axis_y = self.game.joystick.get_axis(1)
+            deadzone = 0.3
+            if abs(axis_x) > deadzone:
+                self.x_change += axis_x * current_speed
+                self.facing = 'right' if axis_x > 0 else 'left'
+            if abs(axis_y) > deadzone:
+                self.y_change += axis_y * current_speed
+                self.facing = 'down' if axis_y > 0 else 'up'
+        
+        # Esquiva (código de movimento continua o mesmo)
+        if self.char_type == 'swordsman':
+            if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) and self.can_dodge():
+                self.last_dodge_time = pygame.time.get_ticks()
+                self.x_change *= self.dodge_speed_multiplier
+                self.y_change *= self.dodge_speed_multiplier
+            if hasattr(self.game, 'joystick') and self.game.joystick and self.game.joystick.get_button(2) and self.can_dodge():
+                self.last_dodge_time = pygame.time.get_ticks()
+                self.x_change *= self.dodge_speed_multiplier
+                self.y_change *= self.dodge_speed_multiplier
+
+    def kill(self):
+        super().kill()
+        self.game.playing = False
+
+
+    def collide_enemy(self):
+    # Verifica colisão com inimigos normais e morcegos
+        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bat, False)
+        
+        # Se colidiu com qualquer inimigo e não está invulnerável
+        if (hits_enemies or hits_bats) and not self.invulnerable:
+            self.take_damage()
+    def collide_blocks(self, direction):
+    # Colisão apenas com blocos normais (não inclui água)
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        
+        if direction == "x" and hits:
+            if self.x_change > 0:
+                self.rect.x = hits[0].rect.left - self.rect.width
+                for sprite in self.game.all_sprites:
+                    sprite.rect.x += self.base_speed
+            if self.x_change < 0:
+                self.rect.x = hits[0].rect.right
+                for sprite in self.game.all_sprites:
+                    sprite.rect.x -= self.base_speed
+
+        if direction == "y" and hits:
+            if self.y_change > 0:
+                self.rect.y = hits[0].rect.top - self.rect.height
+                for sprite in self.game.all_sprites:
+                    sprite.rect.y += self.base_speed
+            if self.y_change < 0:
+                self.rect.y = hits[0].rect.bottom
+                for sprite in self.game.all_sprites:
+                    sprite.rect.y -= self.base_speed
     
+    def collide_obstacle (self, direction):
+        if direction == "x":
+            hits = pygame.sprite.spritecollide(self, self.game.obstacle, False)
+            if hits:
+                if self.x_change > 0:
+                    self.rect.x = hits[0].rect.left - self.rect.width
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x += self.base_speed
+                if self.x_change < 0:
+                    self.rect.x = hits[0].rect.right
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.x -= self.base_speed
+
+        if direction == "y":
+            hits = pygame.sprite.spritecollide(self, self.game.obstacle, False)
+            if hits:
+                if self.y_change > 0:
+                    self.rect.y = hits[0].rect.top - self.rect.height
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y += self.base_speed
+                if self.y_change < 0:
+                    self.rect.y = hits[0].rect.bottom
+                    for sprite in self.game.all_sprites:
+                        sprite.rect.y -= self.base_speed
+
+        
+    def draw(self, surface):
+        if self.is_in_water:
+        # Desenha um círculo azul semitransparente sob o Player
+            water_radius = self.rect.width // 2
+            water_surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+            pygame.draw.circle(water_surface, (0, 100, 255, 128), (water_radius, water_radius), water_radius)
+            surface.blit(water_surface, self.rect.topleft)
+        # Fundo da barra
+        pygame.draw.rect(surface, DODGE_BAR_BG_COLOR, 
+                        (self.x, self.y, self.width, self.height))
+        
+        if hasattr(self.game, 'player'):
+            ratio = self.game.player.get_dodge_cooldown_ratio()
+            fill_width = int(self.width * ratio)
+            
+            # Barra de preenchimento
+            color = DODGE_BAR_COLOR if ratio == 1 else DODGE_COOLDOWN_COLOR
+            pygame.draw.rect(surface, color, 
+                           (self.x, self.y, fill_width, self.height))
+            
+            # Texto
+            font = pygame.font.SysFont('Arial', 12)
+            text = font.render("Dodge", True, WHITE)
+            surface.blit(text, (self.x + 5, self.y - 15))
+
+#GROUNDS
+            
+class Ground1(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = GROUND_LAYER
+        self.groups = game.all_sprites
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        # Posição do tile
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        # Diferentes sprites para cada tilemap
+        self.tilemap_sprites = {
+            1: game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
+            2: game.terrain_spritesheet.get_sprite(256, 352, self.width+6, self.height),
+            3: game.terrain_spritesheet.get_sprite(925, 703, self.width+6, self.height)
+        }
+        
+        # Carrega o sprite baseado no nível atual
+        self.update_sprite()
+        
+        # Define o retângulo de colisão
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
     
-        if hasattr(self, 'player'):
-            # Calcula o deslocamento necessário para centralizar o jogador
-            camera_offset_x = WIN_WIDTH // 2 - self.player.rect.centerx
-            camera_offset_y = WIN_HEIGHT // 2 - self.player.rect.centery
-            
-            # Aplica o offset a todos os sprites
-            for sprite in self.all_sprites:
-                sprite.rect.x += camera_offset_x
-                sprite.rect.y += camera_offset_y
-            
-            # Atualiza a posição real do jogador
-            self.player.x += camera_offset_x
-            self.player.y += camera_offset_y
+    def update_sprite(self):
+        """Atualiza o sprite baseado no nível atual"""
+        self.image = self.tilemap_sprites.get(self.game.current_level, 
+                                            self.tilemap_sprites[1])  # Default para tilemap1
+    
+    def update(self):
+        """Atualiza o sprite se o nível mudar"""
+        self.update_sprite()
 
-    def draw(self):
-        self.screen.fill(BLACK)
-        self.all_sprites.draw(self.screen)
-        # Desenha as barras de vida após os sprites
-        if hasattr(self, 'player'):
-            self.player.draw_health_bar(self.screen)
+class Water1(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = GROUND_LAYER
+        self.groups = self.game.all_sprites, self.game.water
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
         
-        for enemy in self.enemies:
-            enemy.draw_health_bar(self.screen)
-        for bat in self.bat:
-            bat.draw_health_bar(self.screen)
-
-        for npc in self.npcs:
-            if isinstance(npc, Seller2NPC):
-                npc.draw_shop(self.screen)
+        # Carrega os frames de animação para cada nível
+        self.tilemap_animations = {
+            1: [
+                game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(32, 352, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(64, 352, self.width, self.height)
+            ],
+            2: [
+                game.terrain_spritesheet.get_sprite(864, 160, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(894, 160, self.width, self.height),
+                game.terrain_spritesheet.get_sprite(924,160, self.width, self.height)
+            ]
+        }
         
-        self.clock.tick(FPS)
-        self.ability_panel.draw(self.screen)
-        self.dialog_box.draw(self.screen)
-        pygame.display.update()
-    def main(self):
-        # Loop do jogo
-        while self.playing:
-            self.events()
-            self.update()
-            self.draw()
-            self.clock.tick(FPS)
-
-    def game_over(self):
-        text = self.font.render('Game Over, TENTE NOVAMENTE!', True, WHITE)
-        text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
-
-        restart_button = Button(10, WIN_HEIGHT - 60, 120, 50, WHITE, BLACK, 'Restart', 32)
-        for sprite in self.all_sprites:
-            sprite.kill()
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-            mouse_pos = pygame.mouse.get_pos()
-            mouse_pressed = pygame.mouse.get_pressed()
-
-            if restart_button.is_pressed(mouse_pos, mouse_pressed):
-                self.new()
-                self.main()
-
-            self.screen.blit(self.go_background, (0, 0))
-            self.screen.blit(text, text_rect)
-            self.screen.blit(restart_button.image, restart_button.rect)
-            self.clock.tick(FPS)
-            pygame.display.update()
-
-    def intro_screen(self):
-        intro = True
+        # Configuração da animação
+        self.current_frame = 0
+        self.animation_speed = 0.6  # Velocidade da animação (ajuste conforme necessário)
+        self.animation_counter = 0
         
-        tittle = self.font.render('GameAdventure', True, BLACK)
-        tittle_rect = tittle.get_rect(x=10, y=10)
+        self.update_sprite()
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def update_sprite(self):
+        """Atualiza o sprite baseado no nível atual"""
+        frames = self.tilemap_animations.get(self.game.current_level, 
+                                          self.tilemap_animations[1])  # Default para nível 1
+        self.image = frames[self.current_frame]
+    
+    def animate(self):
+        """Atualiza a animação da água"""
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed * 60:  # 60 FPS
+            self.animation_counter = 0
+            frames = self.tilemap_animations.get(self.game.current_level, 
+                                              self.tilemap_animations[1])
+            self.current_frame = (self.current_frame + 1) % len(frames)
+            self.image = frames[self.current_frame]
+    
+    def update(self):
+        """Atualiza o sprite e a animação"""
+        self.animate()
+        self.update_sprite()
 
-        play_button = Button(WIN_WIDTH/2, WIN_HEIGHT/2 , 100, 50, WHITE, BLACK, 'Play', 32)
-        # adicionar botão Personagens
-        while intro:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    intro = False
-                    self.running = False
+class Plant(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = GROUND_LAYER
+        self.groups = self.game.all_sprites
+        pygame.sprite.Sprite.__init__(self, self.groups)
 
-            mouse_pos = pygame.mouse.get_pos()
-            mouse_pressed = pygame.mouse.get_pressed()
+        # Posição da planta
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
 
-            if play_button.is_pressed(mouse_pos, mouse_pressed):
-                try:
-                    pygame.mixer.music.load(MUSIC_LEVELS[1])
-                    pygame.mixer.music.play(-1)
-                    pygame.mixer.music.set_volume(0.15)
-                    print("Música do menu carregada com sucesso")
-                except Exception as e:
-                    print(f"Erro ao carregar música do menu: {e}")
-                intro = False
+        # Diferentes sprites para cada nível
+        self.level_sprites = {
+            1: self.game.plant_spritesheet.get_sprite(510, 352, self.width, self.height),
+            2: self.game.plant_spritesheet.get_sprite(352, 544, self.width, self.height),
+            3: self.game.plant_spritesheet.get_sprite(993, 515, self.width, self.height)# Exemplo com coordenadas diferentes
+        }
+        
+        self.update_sprite()
+        self.image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def update_sprite(self):
+        """Atualiza o sprite baseado no nível atual"""
+        self.image = self.level_sprites.get(self.game.current_level, 
+                                          self.level_sprites[1])  # Default para nível 1
+    
+    def update(self):
+        """Atualiza o sprite se o nível mudar"""
+        self.update_sprite()
+
+class Portal(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = PORTAL_LAYER
+        self.groups = self.game.all_sprites, self.game.blocks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        self.activated = False
+        self.active = False  # Começa inativo
+        self.pulse_effect = 0
+        self.pulse_speed = 0.05
+        self.pulse_max = 0.2
+
+        # Carrega as animações do portal
+        self.animation_frames = [
+            self.game.portal_spritsheet.get_sprite(18, 15, self.width, 45),
+            self.game.portal_spritsheet.get_sprite(83, 15, self.width, 45),
+            self.game.portal_spritsheet.get_sprite(150, 15, self.width, 45)
+        ]
+        
+        self.current_frame = 0
+        self.animation_speed = 0.15
+        self.animation_counter = 0
+        
+        self.image = self.animation_frames[self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+    def update(self):
+        self.animate()
+        if self.active and hasattr(self.game, 'player') and not self.activated:
+            if pygame.sprite.collide_rect(self, self.game.player):
+                self.activated = True
+                # Chama next_level diretamente após um pequeno delay
+                pygame.time.delay(300)  # Pequeno delay para efeito visual
+                self.game.next_level()
+                return True
+        return False  # Dispara evento após 300ms
+
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed * 60:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            self.image = self.animation_frames[self.current_frame]
+            self.image.set_colorkey(BLACK)
             
-            self.screen.blit(self.intro_background, (0,0))
-            self.screen.blit(tittle, tittle_rect)
-            self.screen.blit(play_button.image, play_button.rect)
-            self.clock.tick(FPS)
-            pygame.display.update()
+        # Efeito de pulsação quando ativo
+        if self.active:
+            self.pulse_effect = (self.pulse_effect + self.pulse_speed) % (2 * math.pi)
+            scale = 1 + math.sin(self.pulse_effect) * self.pulse_max
+            old_center = self.rect.center
+            self.image = pygame.transform.scale(self.animation_frames[self.current_frame], 
+                                             (int(self.width * scale), int(self.height * scale)))
+            self.rect = self.image.get_rect(center=old_center)
 
-    def check_enemies_and_spawn_portal(self):
-        if len(self.enemies) == 0:
-            # Procura por portais existentes primeiro
-            for sprite in self.all_sprites:
-                if isinstance(sprite, Portal):
-                    sprite.active = True
-                    return
-                    
-            # Se não encontrou portal, cria um novo
-            if hasattr(self, 'player'):
-                # Posiciona o portal próximo ao jogador
-                x_pos = (self.player.rect.x // TILESIZES) + 2
-                y_pos = self.player.rect.y // TILESIZES
-                portal = Portal(self, x_pos, y_pos)
-                portal.active = True
-# Inicializando o jogo
-g = Game()
-g.character_selection_screen()  # Mostra a seleção primeiro
-g.new()  # Inicia o jogo com o personagem selecionado
+class Bat(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.life = BAT_LIFE
+        self.speed = BAT_SPEED
+        self._layer = ENEMY_LAYER
+        self.groups = self.game.all_sprites, self.game.bat
+        pygame.sprite.Sprite.__init__(self, self.groups)
 
-while g.running:
-    g.main()
-    g.game_over()
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
 
-pygame.quit()
-sys.exit()
+        self.x_change = 0
+        self.y_change = 0
+        self.facing = random.choice(['left', 'right', 'up', 'down'])
+        self.movement_loop = 0  # Inicialização correta da variável
+        self.max_travel = random.randint(7, 30)
+
+        # Animação
+        self.animation_frames = {
+            'left': [
+                self.game.bat_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
+            ],
+            'right': [
+                self.game.bat_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
+           ],
+            'up': [
+                self.game.bat_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
+            ],
+            'down' :[
+                self.game.bat_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
+                self.game.bat_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
+            ]
+        }
+        self.current_frame = 0
+        self.animation_speed = 5
+        self.animation_counter = 0
+
+        self.image = self.animation_frames[self.facing][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+    def draw_health_bar(self, surface, offset=(0, 0)):
+        if self.life == BAT_LIFE: return # Não desenha a barra com vida cheia
+        bar_x = self.rect.x + offset[0] + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y + offset[1] - HEALTH_BAR_OFFSET
+
+        border_rect = pygame.Rect(bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT)
+        bg_rect = border_rect.inflate(-2, -2)
+
+        health_ratio = self.life / BAT_LIFE
+        if health_ratio > 0.6: health_color = HEALTH_COLOR_HIGH
+        elif health_ratio > 0.3: health_color = HEALTH_COLOR_MEDIUM
+        else: health_color = HEALTH_COLOR_LOW
+
+        health_width = int(bg_rect.width * health_ratio)
+        health_rect = pygame.Rect(bg_rect.x, bg_rect.y, health_width, bg_rect.height)
+
+        pygame.draw.rect(surface, HEALTH_BAR_BORDER_COLOR, border_rect)
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, bg_rect)
+        if health_width > 0:
+            pygame.draw.rect(surface, health_color, health_rect)
+
+    def take_damage(self, amount):
+        self.life -= amount
+        if self.life <= 0:
+            self.kill()
+
+    def update(self):
+        self.movement()
+        self.animate()  # Atualiza a animação
+        
+        # Aplica o movimento antes de verificar colisões
+        self.rect.x += self.x_change
+        self.collide_blocks('x')
+        
+        self.rect.y += self.y_change
+        self.collide_blocks('y')
+        
+        # Verifica se o inimigo morreu
+        if self.life <= 0:
+            self.kill()
+    def kill(self):
+    # Remove o inimigo de todos os grupos
+        for group in self.groups:
+            group.remove(self)
+        
+        # Verifica se todos os inimigos foram derrotados
+        if len(self.game.bat ) == 0:
+            # Spawna o portal se não existir
+            self.game.check_enemies_and_spawn_portal()
+
+    def movement(self):
+        if self.facing == 'left':
+            self.x_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if self.facing == 'up':
+            self.y_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['right', 'left', 'down'])
+                 
+        if self.facing == 'down':
+            self.y_change = ENEMY_SPEED
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'left', 'right'])
+
+        if self.facing == 'right':
+            self.x_change = ENEMY_SPEED 
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'down', 'left'])
+
+    def animate(self):
+        # Alterna entre os frames de animação
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
+            self.image = self.animation_frames[self.facing][self.current_frame]
+
+    def collide_blocks(self, direction):
+        # Colisão com blocos normais e água
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
+        all_hits = hits + water_hits
+        
+        if direction == "x" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.x_change > 0:
+                self.rect.right = all_hits[0].rect.left
+                self.facing = random.choice(['up', 'down', 'left'])
+            if self.x_change < 0:
+                self.rect.left = all_hits[0].rect.right
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if direction == "y" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.y_change > 0:
+                self.rect.bottom = all_hits[0].rect.top
+                self.facing = random.choice(['up', 'left', 'right'])
+            if self.y_change < 0:
+                self.rect.top = all_hits[0].rect.bottom
+                self.facing = random.choice(['down', 'left', 'right'])
+
+class enemy(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.life = ENEMY_LIFE
+        self.speed = ENEMY_SPEED
+        self._layer = ENEMY_LAYER
+        self.groups = self.game.all_sprites, self.game.enemies
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        self.x_change = 0
+        self.y_change = 0
+        self.facing = random.choice(['left', 'right', 'up', 'down'])
+        self.movement_loop = 0  # Inicialização correta da variável
+        self.max_travel = random.randint(7, 30)
+
+        # Animação
+        self.animation_frames = {
+            'left': [
+                self.game.enemy_spritesheet.get_sprite(3, 98, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(35, 98, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(68, 98, self.width, self.height)
+            ],
+            'right': [
+                self.game.enemy_spritesheet.get_sprite(3, 66, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(35, 66, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(68, 66, self.width, self.height)
+           ],
+            'up': [
+                self.game.enemy_spritesheet.get_sprite(3, 35, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(35, 35, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(68, 35, self.width, self.height)
+            ],
+            'down' :[
+                self.game.enemy_spritesheet.get_sprite(3, 3, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(35, 3, self.width, self.height),
+                self.game.enemy_spritesheet.get_sprite(68, 3, self.width, self.height)
+            ]
+        }
+        self.current_frame = 0
+        self.animation_speed = 5
+        self.animation_counter = 0
+
+        self.image = self.animation_frames[self.facing][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    def draw_health_bar(self, surface, offset=(0, 0)):
+        if self.life == ENEMY_LIFE: return
+        bar_x = self.rect.x + offset[0] + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y + offset[1] - HEALTH_BAR_OFFSET
+        border_rect = pygame.Rect(bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT)
+        bg_rect = border_rect.inflate(-2, -2)
+        health_ratio = self.life / ENEMY_LIFE
+        health_color = HEALTH_COLOR_LOW # Inimigos comuns sempre mostram vida vermelha
+        health_width = int(bg_rect.width * health_ratio)
+        health_rect = pygame.Rect(bg_rect.x, bg_rect.y, health_width, bg_rect.height)
+        pygame.draw.rect(surface, HEALTH_BAR_BORDER_COLOR, border_rect)
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, bg_rect)
+        if health_width > 0:
+            pygame.draw.rect(surface, health_color, health_rect)
+
+    def take_damage(self, amount):
+        self.life -= amount
+        if self.life <= 0:
+            self.kill()
+
+    def update(self):
+        self.movement()
+        self.animate()  # Atualiza a animação
+        
+        # Aplica o movimento antes de verificar colisões
+        self.rect.x += self.x_change
+        self.collide_blocks('x')
+        
+        self.rect.y += self.y_change
+        self.collide_blocks('y')
+        
+        # Verifica se o inimigo morreu
+        if self.life <= 0:
+            self.kill()
+    def kill(self):
+    # Remove o inimigo de todos os grupos
+        for group in self.groups:
+            group.remove(self)
+        
+        # Verifica se todos os inimigos foram derrotados
+        if len(self.game.enemies) == 0:
+            # Spawna o portal se não existir
+            self.game.check_enemies_and_spawn_portal()
+
+    def movement(self):
+        if self.facing == 'left':
+            self.x_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if self.facing == 'up':
+            self.y_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['right', 'left', 'down'])
+                 
+        if self.facing == 'down':
+            self.y_change = ENEMY_SPEED
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'left', 'right'])
+
+        if self.facing == 'right':
+            self.x_change = ENEMY_SPEED 
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'down', 'left'])
+
+    def animate(self):
+        # Alterna entre os frames de animação
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
+            self.image = self.animation_frames[self.facing][self.current_frame]
+
+    def collide_blocks(self, direction):
+        # Colisão com blocos normais e água
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
+        all_hits = hits + water_hits
+        
+        if direction == "x" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.x_change > 0:
+                self.rect.right = all_hits[0].rect.left
+                self.facing = random.choice(['up', 'down', 'left'])
+            if self.x_change < 0:
+                self.rect.left = all_hits[0].rect.right
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if direction == "y" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.y_change > 0:
+                self.rect.bottom = all_hits[0].rect.top
+                self.facing = random.choice(['up', 'left', 'right'])
+            if self.y_change < 0:
+                self.rect.top = all_hits[0].rect.bottom
+                self.facing = random.choice(['down', 'left', 'right'])
+
+        
+
+class EnemyCoin(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.life = ENEMY_LIFE
+        self.speed = ENEMY_SPEED
+        self._layer = ENEMY_LAYER
+        self.groups = self.game.all_sprites, self.game.enemies
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        self.x_change = 0
+        self.y_change = 0
+        self.facing = random.choice(['left', 'right', 'up', 'down'])
+        self.movement_loop = 0  # Inicialização correta da variável
+        self.max_travel = random.randint(7, 30)
+
+        # Animação
+        self.animation_frames = {
+            'left': [
+                self.game.enemycoin_spritesheet.get_sprite(3, 98, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 98, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 98, self.width, self.height)
+            ],
+            'right': [
+                self.game.enemycoin_spritesheet.get_sprite(3, 66, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 66, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 66, self.width, self.height)
+           ],
+            'up': [
+                self.game.enemycoin_spritesheet.get_sprite(3, 35, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 35, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 35, self.width, self.height)
+            ],
+            'down' :[
+                self.game.enemycoin_spritesheet.get_sprite(3, 3, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(35, 3, self.width, self.height),
+                self.game.enemycoin_spritesheet.get_sprite(68, 3, self.width, self.height)
+            ]
+        }
+        self.current_frame = 0
+        self.animation_speed = 10
+        self.animation_counter = 0
+
+        self.image = self.animation_frames[self.facing][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    def draw_health_bar(self, surface, offset=(0, 0)):
+        if self.life == ENEMY_LIFE: return
+        bar_x = self.rect.x + offset[0] + (self.rect.width // 2) - (HEALTH_BAR_WIDTH // 2)
+        bar_y = self.rect.y + offset[1] - HEALTH_BAR_OFFSET
+        border_rect = pygame.Rect(bar_x, bar_y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT)
+        bg_rect = border_rect.inflate(-2, -2)
+        health_ratio = self.life / ENEMY_LIFE
+        health_color = HEALTH_COLOR_LOW # Inimigos comuns sempre mostram vida vermelha
+        health_width = int(bg_rect.width * health_ratio)
+        health_rect = pygame.Rect(bg_rect.x, bg_rect.y, health_width, bg_rect.height)
+        pygame.draw.rect(surface, HEALTH_BAR_BORDER_COLOR, border_rect)
+        pygame.draw.rect(surface, HEALTH_BAR_BG_COLOR, bg_rect)
+        if health_width > 0:
+            pygame.draw.rect(surface, health_color, health_rect)
+
+    def take_damage(self, amount):
+        self.life -= amount
+        if self.life <= 0:
+            self.kill()
+
+    def update(self):
+        self.movement()
+        self.animate()  # Atualiza a animação
+        
+        # Aplica o movimento antes de verificar colisões
+        self.rect.x += self.x_change
+        self.collide_blocks('x')
+        
+        self.rect.y += self.y_change
+        self.collide_blocks('y')
+        
+        # Verifica se o inimigo morreu
+        if self.life <= 0:
+            self.kill()
+    def kill(self):
+    # Remove o inimigo de todos os grupos
+        for group in self.groups:
+            group.remove(self)
+        # Dropa uma moeda quando morre
+        Coin(self.game, self.rect.centerx, self.rect.centery)
+        # Verifica se todos os inimigos foram derrotados
+        if len(self.game.enemies) == 0:
+            # Spawna o portal se não existir
+            self.game.check_enemies_and_spawn_portal()
+
+    def movement(self):
+        if self.facing == 'left':
+            self.x_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if self.facing == 'up':
+            self.y_change = -ENEMY_SPEED
+            self.movement_loop -= 1
+            if self.movement_loop <= -self.max_travel:
+                self.facing = random.choice(['right', 'left', 'down'])
+                 
+        if self.facing == 'down':
+            self.y_change = ENEMY_SPEED
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'left', 'right'])
+
+        if self.facing == 'right':
+            self.x_change = ENEMY_SPEED 
+            self.movement_loop += 1
+            if self.movement_loop >= self.max_travel:
+                self.facing = random.choice(['up', 'down', 'left'])
+
+    def animate(self):
+        # Alterna entre os frames de animação
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.facing])
+            self.image = self.animation_frames[self.facing][self.current_frame]
+
+    def collide_blocks(self, direction):
+    # Colisão com blocos normais e água
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        water_hits = pygame.sprite.spritecollide(self, self.game.water, False)
+        all_hits = hits + water_hits
+        
+        if direction == "x" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.x_change > 0:
+                self.rect.right = all_hits[0].rect.left
+                self.facing = random.choice(['up', 'down', 'left'])
+            if self.x_change < 0:
+                self.rect.left = all_hits[0].rect.right
+                self.facing = random.choice(['up', 'down', 'right'])
+
+        if direction == "y" and all_hits:
+            self.speed = ENEMY_SPEED / 2
+            if self.y_change > 0:
+                self.rect.bottom = all_hits[0].rect.top
+                self.facing = random.choice(['up', 'left', 'right'])
+            if self.y_change < 0:
+                self.rect.top = all_hits[0].rect.bottom
+                self.facing = random.choice(['down', 'left', 'right'])
+
+class Block(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = BLOCK_LAYER
+        self.groups = self.game.all_sprites, self.game.blocks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        # Posição do bloco
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        # Define a aparência do bloco
+        self.image = self.game.block_spritesheet.get_sprite(960, 448, self.width, self.height)
+        self.image.set_colorkey(BLACK)
+
+        # Define o retângulo de colisão
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+class AbilityPanel:
+    def __init__(self, game):
+        self.game = game
+        self.rect = pygame.Rect(ABILITY_PANEL_X, ABILITY_PANEL_Y, ABILITY_PANEL_WIDTH, ABILITY_PANEL_HEIGHT)
+        
+        self.title_font = pygame.font.SysFont('arial', ABILITY_TITLE_FONT_SIZE, bold=True)
+        self.text_font = pygame.font.SysFont('arial', ABILITY_FONT_SIZE)
+        self.coin_icon = self.game.coin.get_sprite(9, 5, 16, 16)
+        
+    def draw(self, surface):
+        if not hasattr(self.game, 'player'): return
+        
+        # Desenha borda e fundo do painel
+        pygame.draw.rect(surface, UI_BORDER_COLOR, self.rect)
+        bg_rect = self.rect.inflate(-UI_BORDER_WIDTH * 2, -UI_BORDER_WIDTH * 2)
+        pygame.draw.rect(surface, ABILITY_PANEL_COLOR, bg_rect)
+        
+        # Título
+        title = self.title_font.render("Habilidades", True, UI_FONT_COLOR)
+        surface.blit(title, (self.rect.x + 15, self.rect.y + 15))
+        
+        y_offset = 60
+        # Ataque
+        attack_key = self.text_font.render("Ataque [ESPAÇO]", True, UI_FONT_COLOR)
+        surface.blit(attack_key, (self.rect.x + 15, self.rect.y + y_offset))
+        self.draw_attack_bar(surface, self.rect.x + 15, self.rect.y + y_offset + 25)
+
+        # Esquiva
+        y_offset += 60
+        dodge_key = self.text_font.render("Esquiva [SHIFT]", True, UI_FONT_COLOR)
+        surface.blit(dodge_key, (self.rect.x + 15, self.rect.y + y_offset))
+        self.draw_dodge_bar(surface, self.rect.x + 15, self.rect.y + y_offset + 25)
+
+        # Moedas
+        y_offset += 45
+        surface.blit(self.coin_icon, (self.rect.x + 15, self.rect.y + y_offset + 2))
+        coin_text = self.text_font.render(f": {self.game.player.coins}", True, UI_TITLE_COLOR)
+        surface.blit(coin_text, (self.rect.x + 35, self.rect.y + y_offset))
+
+    def draw_bar(self, surface, x, y, ratio, ready_color, cooldown_color):
+        fill_width = int(BAR_WIDTH * ratio)
+        color = ready_color if ratio >= 1.0 else cooldown_color
+        
+        border_rect = pygame.Rect(x, y, BAR_WIDTH, BAR_HEIGHT)
+        bg_rect = border_rect.inflate(-2, -2)
+        fill_rect = pygame.Rect(bg_rect.x, bg_rect.y, fill_width, bg_rect.height)
+
+        pygame.draw.rect(surface, HEALTH_BAR_BORDER_COLOR, border_rect)
+        pygame.draw.rect(surface, BAR_BG_COLOR, bg_rect)
+        pygame.draw.rect(surface, color, fill_rect)
+
+    def draw_attack_bar(self, surface, x, y):
+        ratio = self.game.player.get_attack_cooldown_ratio()
+        self.draw_bar(surface, x, y, ratio, ATTACK_READY_COLOR, ATTACK_COOLDOWN_COLOR)
+
+    def draw_dodge_bar(self, surface, x, y):
+        ratio = self.game.player.get_dodge_cooldown_ratio()
+        self.draw_bar(surface, x, y, ratio, DODGE_READY_COLOR, DODGE_COOLDOWN_COLOR)
+        
+        # Texto de status
+        #status = "PRONTO" if ratio >= 1.0 else f"{int(ratio*100)}%"
+        #status_text = self.small_font.render(status, True, WHITE)
+        #surface.blit(status_text, (x + DODGE_BAR_WIDTH + 5, y))
+
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = OBSTACLE_LAYER
+        self.groups = self.game.all_sprites, self.game.blocks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        # Posição do obstáculo
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+
+        # Diferentes sprites para cada nível
+        self.level_sprites = {
+            1: self.game.obstacle_spritesheet.get_sprite(640, 203, self.width-4, self.height-4),  # Tronco
+            2: self.game.obstacle_spritesheet.get_sprite(670, 260, self.width, self.height),
+            3: self.game.plant_spritesheet.get_sprite(994, 546, self.width, self.height) 
+        }
+        
+        self.update_sprite()
+        self.image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def update_sprite(self):
+        #""Atualiza o sprite baseado no nível atual"""
+        self.image = self.level_sprites.get(self.game.current_level)  # Default para nível 1
+    
+    def update(self):
+        """Atualiza o sprite se o nível mudar"""
+        self.update_sprite()
+
+
+
+class Button:
+    def __init__(self, x ,y, width, height, fg, bg, content, fontsize):
+        self.font = pygame.font.SysFont('arial.ttf', fontsize)
+        self.content = content
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+
+        self.fg = fg
+        self.bg = bg
+        self.image = pygame.Surface((self.width, self.height))
+        self.image.fill(self.bg)
+        self.rect = self.image.get_rect()
+
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+        self.text = self.font.render(self.content, True, self.fg)
+        self.text_rect = self.text.get_rect(center=(self.width/2, self.height/2))
+        self.image.blit(self.text, self.text_rect)
+
+    def is_pressed(self, pos, pressed):
+        if self.rect.collidepoint(pos):
+            if pressed[0]:
+                return True
+            return False
+        return False
+
+class SwordAttack(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = PLAYER_LAYER
+        self.groups = self.game.all_sprites, self.game.attacks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x
+        self.y = y
+        self.width = TILESIZES   # Aumenta o tamanho do ataque
+        self.height = TILESIZES
+        
+        self.animation_loop = 0
+        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)  # Surface transparente
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.direction = self.game.player.facing  # Armazena a direção do jogador
+
+    def collide(self):
+        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bat, False)
+
+        for enemy in hits_enemies:
+            enemy.take_damage(self.game.player.damage)  # Passa o dano do jogador
+
+        for bat in hits_bats:
+            bat.take_damage(self.game.player.damage)  # Passa o dano do jogador
+
+    def update(self):
+        self.animate()
+        self.collide()
+
+    def animate(self):
+        direction = self.direction  # Usa a direção armazenada
+
+        right_animations = [
+            self.game.attack_spritsheet.get_sprite(40, 122, self.width, self.height)
+        ]
+        down_animations = [
+            self.game.attack_spritsheet.get_sprite(114, 130, self.width, self.height)
+        ]
+        left_animations = [
+            self.game.attack_spritsheet.get_sprite(77, 123, self.width, self.height)
+        ]
+        up_animations = [
+            self.game.attack_spritsheet.get_sprite(0, 130, self.width, self.height)
+        ]
+
+        if direction == 'up':
+            self.image = up_animations[0]
+        elif direction == 'down':
+            self.image = down_animations[0]
+        elif direction == 'right':
+            self.image = right_animations[0]
+        elif direction == 'left':
+            self.image = left_animations[0]
+            
+        # Mantém a posição relativa ao jogador
+        
+            
+        # Remove o ataque após um curto período
+        self.animation_loop += 0.5
+        if self.animation_loop >= 2:
+            self.kill()  # Ajuste este valor conforme necessário
+class DialogBox:
+    def __init__(self, game):
+        self.game = game
+        self.active = False
+        self.current_text = ""
+        self.visible_text = ""
+        self.text_progress = 0
+        self.font = pygame.font.SysFont('arial', DIALOG_FONT_SIZE)
+        self.rect = pygame.Rect(DIALOG_BOX_X, DIALOG_BOX_Y, DIALOG_BOX_WIDTH, DIALOG_BOX_HEIGHT)
+        self.current_speaker = ""
+        self.npc = None
+
+    def start_dialog(self, npc):
+        if self.active: return
+        self.active = True
+        self.npc = npc
+        # Pega o primeiro diálogo para iniciar
+        self.npc.current_dialog_index = 0
+        dialog = self.npc.get_current_dialog()
+        if dialog:
+            self.current_speaker = dialog["speaker"]
+            self.current_text = dialog["text"]
+            self.visible_text = ""
+            self.text_progress = 0
+
+    def next_dialog(self):
+        """Avança para o próximo diálogo na sequência do NPC."""
+        if self.npc and self.npc.next_dialog():
+            # Se o NPC tiver um próximo diálogo, atualiza a caixa
+            current_dialog = self.npc.get_current_dialog()
+            if current_dialog:
+                self.current_speaker = current_dialog["speaker"]
+                self.current_text = current_dialog["text"]
+                self.visible_text = ""
+                self.text_progress = 0
+                return True # Indica que há mais diálogos
+        # Se não houver mais diálogos, retorna False
+        return False
+
+    def update(self):
+        """Atualiza a animação do texto."""
+        if self.active and self.text_progress < len(self.current_text):
+            self.text_progress += DIALOG_TEXT_SPEED
+            self.visible_text = self.current_text[:int(self.text_progress)]
+
+    def draw(self, surface):
+        if not self.active: return
+        
+        # Desenha a borda e o fundo da caixa
+        pygame.draw.rect(surface, UI_BORDER_COLOR, self.rect)
+        bg_rect = self.rect.inflate(-UI_BORDER_WIDTH * 2, -UI_BORDER_WIDTH * 2)
+        pygame.draw.rect(surface, DIALOG_BOX_COLOR, bg_rect)
+
+        # Speaker
+        speaker_color = (255, 220, 100) if self.current_speaker == "Player" else (120, 220, 255)
+        speaker_surface = self.font.render(f"{self.current_speaker}:", True, speaker_color)
+        surface.blit(speaker_surface, (self.rect.x + DIALOG_TEXT_MARGIN, self.rect.y + DIALOG_TEXT_MARGIN))
+        
+        # Texto do Diálogo com quebra de linha
+        text_x = self.rect.x + DIALOG_TEXT_MARGIN
+        text_y = self.rect.y + DIALOG_TEXT_MARGIN + speaker_surface.get_height() + 5
+        max_width = self.rect.width - (DIALOG_TEXT_MARGIN * 2)
+        words = self.visible_text.split(' ')
+        space = self.font.size(' ')[0]
+        line_spacing = self.font.get_linesize()
+        current_x, current_y = text_x, text_y
+
+        for word in words:
+            word_surface = self.font.render(word, True, DIALOG_TEXT_COLOR)
+            word_width, _ = word_surface.get_size()
+            if current_x + word_width >= text_x + max_width:
+                current_x = text_x
+                current_y += line_spacing
+            surface.blit(word_surface, (current_x, current_y))
+            current_x += word_width + space
+
+        # Indicador para continuar
+        if self.text_progress >= len(self.current_text) and pygame.time.get_ticks() % 1000 > 500:
+            indicator_points = [
+                (self.rect.right - 35, self.rect.bottom - 25),
+                (self.rect.right - 25, self.rect.bottom - 25),
+                (self.rect.right - 30, self.rect.bottom - 15)
+            ]
+            pygame.draw.polygon(surface, UI_FONT_COLOR, indicator_points)
+
+    def close(self):
+        """Fecha a caixa de diálogo."""
+        self.active = False
+        self.current_text = ""
+        self.visible_text = ""
+        self.text_progress = 0
+        self.current_speaker = ""
+        if self.npc:
+            self.npc.current_dialog_index = 0 # Reseta o diálogo do NPC
+            self.npc = None
+class SlimeNPC(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = NPC_LAYER
+        self.groups = self.game.all_sprites, self.game.npcs
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        # Carrega as animações do slime
+        self.animation_frames = {
+            'idle': [
+                self.game.slimenpc.get_sprite(1, 1, self.width, self.height)
+            ]
+        }
+        
+        # Configuração de animação
+        self.current_frame = 0
+        self.animation_speed = 10
+        self.animation_counter = 0
+        self.image = self.animation_frames['idle'][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+        
+        # Diálogo sequencial
+        self.dialog_sequence = [
+            {'speaker': 'Slime', 'text': 'Blub! Blub! (olá...humano.)'},
+            {"speaker": "Slime", "text": "Blub, Blub, Blub! (Derrotar...Goblins...Portal...Ativar)."},
+            {"speaker": "Player", "text": "Não entendo o que esse pedaço de gosma fala..."},
+            {"speaker": "Player", "text": "Mas suponho que tenha a ver com aquelas coisas feias"}
+        ]
+        self.current_dialog_index = 0
+        self.in_range = False
+        self.can_interact = True  # Adicione esta linha para definir o atributo
+        self.last_interact_time = 0
+        self.interact_cooldown = 1000  # 1 segundo de cooldown
+        
+    def next_dialog(self):
+        """Avança para o próximo diálogo na sequência"""
+        self.current_dialog_index += 1
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return True
+        return False
+    
+    def get_current_dialog(self):
+        """Retorna o diálogo atual"""
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return self.dialog_sequence[self.current_dialog_index]
+        return None
+        
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames['idle'])
+            self.image = self.animation_frames['idle'][self.current_frame]
+            self.image.set_colorkey(BLACK)
+            
+    def update(self):
+        self.animate()
+        
+        current_time = pygame.time.get_ticks()
+        
+        # Verifica colisão com o jogador
+        if hasattr(self.game, 'player'):
+            colliding = pygame.sprite.collide_rect(self, self.game.player)
+            
+            if colliding and not self.in_range and self.can_interact:
+                self.in_range = True
+                if not self.game.dialog_box.active:
+                    self.current_dialog_index = 0
+                    current_dialog = self.get_current_dialog()
+                    if current_dialog:
+                        self.game.dialog_box.start_dialog(self)
+                        self.last_interact_time = current_time
+                        self.can_interact = False
+            
+            if not colliding and self.in_range:
+                self.in_range = False
+                if self.game.dialog_box.active and self.game.dialog_box.npc == self:
+                    self.game.dialog_box.close()
+        
+        # Verifica cooldown de interação
+        if not self.can_interact and current_time - self.last_interact_time > self.interact_cooldown:
+            self.can_interact = True
+
+class Seller1NPC(pygame.sprite.Sprite): #vendedor dialogo
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = NPC_LAYER
+        self.groups = self.game.all_sprites, self.game.npcs
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        # Carrega as animações do slime
+        self.animation_frames = {
+            'idle': [
+                self.game.seller_spritesheet.get_sprite(1, 0, self.width, self.height),
+                self.game.seller_spritesheet.get_sprite(1, 32, self.width, self.height)
+            ]
+        }
+        
+        # Configuração de animação
+        self.current_frame = 0
+        self.animation_speed = 30
+        self.animation_counter = 0
+        self.image = self.animation_frames['idle'][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+        
+        # Diálogo sequencial
+        self.dialog_sequence = [
+            {'speaker': '???', 'text': 'Olá, Forasteiro.'},
+            {"speaker": "Player", "text": "Quem é você?"},
+            {"speaker": "Mercador", "text": "Apenas um vendedor ambulante pelas regiôes."},
+            {"speaker": "Player", "text": "uhm... boto fé..."},
+            {"speaker": "Mercador", "text": "Está precisando de algumas melhorias em seu equipamento? Forasteiro."},
+            {"speaker": "Player", "text": "Não... por enquanto..."},
+            {"speaker": "Mercador", "text": "He he he he, te vejo por aí, Forasteiro"}
+        ]
+        self.current_dialog_index = 0
+        self.in_range = False
+        self.can_interact = True  # Adicione esta linha para definir o atributo
+        self.last_interact_time = 1
+        self.interact_cooldown = 0.5  # 0.5 segundo de cooldown
+        
+    def next_dialog(self):
+        #"""Avança para o próximo diálogo na sequência"""
+        self.current_dialog_index += 1
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return True
+        return False
+    
+    def get_current_dialog(self):
+        #"""Retorna o diálogo atual"""
+        if self.current_dialog_index < len(self.dialog_sequence):
+            return self.dialog_sequence[self.current_dialog_index]
+        return None
+        
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames['idle'])
+            self.image = self.animation_frames['idle'][self.current_frame]
+            self.image.set_colorkey(BLACK)
+            
+    def update(self):
+        self.animate()
+        
+        current_time = pygame.time.get_ticks()
+        
+        # Verifica colisão com o jogador
+        if hasattr(self.game, 'player'):
+            colliding = pygame.sprite.collide_rect(self, self.game.player)
+            
+            if colliding and not self.in_range and self.can_interact:
+                self.in_range = True
+                if not self.game.dialog_box.active:
+                    self.current_dialog_index = 0
+                    current_dialog = self.get_current_dialog()
+                    if current_dialog:
+                        self.game.dialog_box.start_dialog(self)
+                        self.last_interact_time = current_time
+                        self.can_interact = False
+            
+            if not colliding and self.in_range:
+                self.in_range = False
+                if self.game.dialog_box.active and self.game.dialog_box.npc == self:
+                    self.game.dialog_box.close()
+        
+        # Verifica cooldown de interação
+        if not self.can_interact and current_time - self.last_interact_time > self.interact_cooldown:
+            self.can_interact = True
+
+class Seller2NPC(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = NPC_LAYER
+        self.groups = self.game.all_sprites, self.game.npcs
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x, self.y, self.width, self.height = x * TILESIZES, y * TILESIZES, TILESIZES, TILESIZES
+        self.load_animations()
+        self.current_frame, self.animation_speed, self.animation_counter = 0, 30, 0
+        self.image = self.animation_frames['idle'][self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+        
+        self.shop_active = False
+        self.selected_option = 0
+        self.last_interact_time = 0
+        self.interact_cooldown = 2000 # ms
+        
+        self.upgrade_options = [
+            {"name": "Restaurar Vida", "cost": 5, "description": "Recupera toda a sua vida.", "effect": self.upgrade_health},
+            {"name": "Aumentar Dano", "cost": 2, "description": "+2 de dano por ataque.", "effect": self.upgrade_damage},
+            {"name": "Aumentar Velocidade", "cost": 2, "description": "Aumenta permanentemente a velocidade.", "effect": self.upgrade_speed},
+            {"name": "Melhorar Recarga", "cost": 3, "description": "-30% no tempo de recarga de habilidades.", "effect": self.upgrade_cooldown}
+        ]
+
+    def load_animations(self):
+        self.animation_frames = {'idle': [
+                self.game.seller_spritesheet.get_sprite(1, 0, self.width, self.height),
+                self.game.seller_spritesheet.get_sprite(1, 32, self.width, self.height)
+            ]}
+
+    def upgrade_health(self, player):
+        if player.coins >= 5:
+            player.coins -= 5
+            player.life = self.game.player.max_life
+            return True
+        return False
+    
+    def upgrade_damage(self, player):
+        if player.coins >= 2:
+            player.coins -= 2
+            player.damage += 2
+            return True
+        return False
+    
+    def upgrade_speed(self, player):
+        if player.coins >= 2:
+            player.coins -= 2
+            player.speed_boost += 1
+            return True
+        return False
+    
+    def upgrade_cooldown(self, player):
+        if player.coins >= 3:
+            player.coins -= 3
+            player.attack_cooldown_multiplier *= 0.7
+            player.dodge_cooldown_multiplier *= 0.7
+            return True
+        return False
+
+    def draw_shop(self, surface):
+        if not self.shop_active: return
+            
+        shop_rect = pygame.Rect(SHOP_X, SHOP_Y, SHOP_WIDTH, SHOP_HEIGHT)
+        pygame.draw.rect(surface, UI_BORDER_COLOR, shop_rect)
+        bg_rect = shop_rect.inflate(-UI_BORDER_WIDTH * 2, -UI_BORDER_WIDTH * 2)
+        pygame.draw.rect(surface, SHOP_BG_COLOR, bg_rect)
+        
+        title_font = pygame.font.SysFont('arial', SHOP_TITLE_FONT_SIZE, bold=True)
+        title = title_font.render("Loja de Melhorias", True, SHOP_TITLE_COLOR)
+        surface.blit(title, title.get_rect(centerx=shop_rect.centerx, y=shop_rect.y + 20))
+        
+        coin_font = pygame.font.SysFont('arial', SHOP_FONT_SIZE)
+        coin_text = coin_font.render(f"Moedas: {self.game.player.coins}", True, UI_TITLE_COLOR)
+        surface.blit(coin_text, coin_text.get_rect(right=shop_rect.right - 20, y=shop_rect.y + 65))
+        
+        option_font = pygame.font.SysFont('arial', SHOP_FONT_SIZE)
+        desc_font = pygame.font.SysFont('arial', 18)
+        y_offset = 120
+        for i, option in enumerate(self.upgrade_options):
+            if i == self.selected_option:
+                arrow_points = [(shop_rect.x + 25, shop_rect.y + y_offset + 10), (shop_rect.x + 40, shop_rect.y + y_offset + 17), (shop_rect.x + 25, shop_rect.y + y_offset + 24)]
+                pygame.draw.polygon(surface, SHOP_SELECTED_COLOR, arrow_points)
+
+            color = SHOP_SELECTED_COLOR if i == self.selected_option else SHOP_OPTION_COLOR
+            text = option_font.render(f"{option['name']} - ({option['cost']} moedas)", True, color)
+            surface.blit(text, (shop_rect.x + 55, shop_rect.y + y_offset))
+            
+            desc = desc_font.render(option['description'], True, (200, 200, 200))
+            surface.blit(desc, (shop_rect.x + 60, shop_rect.y + y_offset + 30))
+            
+            y_offset += 70
+
+    def handle_shop_input(self):
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_interact_time < self.interact_cooldown: return
+            
+        keys = pygame.key.get_pressed()
+        
+        if keys[pygame.K_UP]:
+            self.selected_option = (self.selected_option - 1) % len(self.upgrade_options)
+            self.last_interact_time = current_time
+        elif keys[pygame.K_DOWN]:
+            self.selected_option = (self.selected_option + 1) % len(self.upgrade_options)
+            self.last_interact_time = current_time
+        
+        if keys[pygame.K_SPACE] or (self.game.joystick and self.game.joystick.get_button(0)):
+            selected = self.upgrade_options[self.selected_option]
+            selected["effect"](self.game.player)
+            self.last_interact_time = current_time
+        
+        if keys[pygame.K_ESCAPE] or (self.game.joystick and self.game.joystick.get_button(1)):
+            self.shop_active = False
+            self.last_interact_time = current_time
+
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames['idle'])
+            self.image = self.animation_frames['idle'][self.current_frame]
+            self.image.set_colorkey(BLACK)
+
+    def update(self):
+        self.animate()
+        current_time = pygame.time.get_ticks()
+        if hasattr(self.game, 'player'):
+            colliding = pygame.sprite.collide_rect(self, self.game.player)
+            
+            if colliding and not self.shop_active and current_time - self.last_interact_time > 1000:
+                self.shop_active = True
+                self.selected_option = 0
+                self.last_interact_time = current_time
+            
+            if not colliding and self.shop_active:
+                self.shop_active = False
+            
+            if self.shop_active:
+                self.handle_shop_input()
+        # Pode adicionar um efeito sonoro aqui
+class Coin(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = ITEM_LAYER  # Adicione ITEM_LAYER no config.py com valor apropriado
+        self.groups = self.game.all_sprites
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x
+        self.y = y
+        self.width = TILESIZES // 2
+        self.height = TILESIZES // 2
+        
+        # Animação da moeda
+        self.animation_frames = [
+            self.game.coin.get_sprite(9, 5, 16, 16),
+            self.game.coin.get_sprite(74, 5, 16, 16),
+            self.game.coin.get_sprite(43, 36, 16, 16),
+            self.game.coin.get_sprite(43, 70, 16, 16)
+        ]
+        
+        self.current_frame = 0
+        self.animation_speed = 0.1
+        self.animation_counter = 0
+        
+        self.image = self.animation_frames[self.current_frame]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.center = (self.x, self.y)
+        
+        # Tempo de vida da moeda
+        self.lifetime = 20000  # 10 segundos
+        self.spawn_time = pygame.time.get_ticks()
+    
+    def update(self):
+        # Atualiza animação
+        self.animate()
+        
+        # Verifica colisão com o jogador
+        if hasattr(self.game, 'player'):
+            if pygame.sprite.collide_rect(self, self.game.player):
+                self.game.player.coins += 1  # Incrementa contador de moedas
+                self.kill()
+        
+        # Verifica tempo de vida
+        if pygame.time.get_ticks() - self.spawn_time > self.lifetime:
+            self.kill()
+    
+    def animate(self):
+        self.animation_counter += 1
+        if self.animation_counter >= self.animation_speed * 60:
+            self.animation_counter = 0
+            self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            self.image = self.animation_frames[self.current_frame]
+            self.image.set_colorkey(BLACK)
