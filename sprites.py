@@ -381,7 +381,8 @@ class Ground1(pygame.sprite.Sprite):
         self.tilemap_sprites = {
             1: game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
             2: game.terrain_spritesheet.get_sprite(256, 352, self.width+6, self.height),
-            3: game.terrain_spritesheet.get_sprite(925, 703, self.width+6, self.height)
+            3: game.terrain_spritesheet.get_sprite(925, 703, self.width+6, self.height),
+            4: game.terrain_spritesheet.get_sprite(575, 545, self.width+6, self.height)
         }
         
         # Carrega o sprite baseado no nível atual
@@ -475,7 +476,8 @@ class Plant(pygame.sprite.Sprite):
         self.level_sprites = {
             1: self.game.plant_spritesheet.get_sprite(510, 352, self.width, self.height),
             2: self.game.plant_spritesheet.get_sprite(352, 544, self.width, self.height),
-            3: self.game.plant_spritesheet.get_sprite(993, 515, self.width, self.height)# Exemplo com coordenadas diferentes
+            3: self.game.plant_spritesheet.get_sprite(993, 515, self.width, self.height),
+            4: self.game.plant_spritesheet.get_sprite(581, 421, self.width, self.height) # Exemplo com coordenadas diferentes
         }
         
         self.update_sprite()
@@ -1125,7 +1127,8 @@ class Obstacle(pygame.sprite.Sprite):
         self.level_sprites = {
             1: self.game.obstacle_spritesheet.get_sprite(640, 203, self.width-4, self.height-4),  # Tronco
             2: self.game.obstacle_spritesheet.get_sprite(670, 260, self.width, self.height),
-            3: self.game.plant_spritesheet.get_sprite(994, 546, self.width, self.height) 
+            3: self.game.plant_spritesheet.get_sprite(994, 545, self.width, self.height),
+            4: self.game.plant_spritesheet.get_sprite(703, 556, self.width, self.height)
         }
         
         self.update_sprite()
