@@ -258,6 +258,9 @@ class Game:
                 current_tilemap = tilemap2
             elif self.current_level == 3:
                 current_tilemap = tilemap3
+            elif self.current_level == 4:
+                current_tilemap = tilemap4
+
             
             # Restante do método permanece o mesmo...
             # Cria uma cópia do tilemap para modificar
@@ -319,7 +322,8 @@ class Game:
     #"""Inicia um novo jogo"""
         pygame.mixer.init()
         self.playing = True
-        self.current_level = 1  # Sempre começa no nível 1
+        self.character_selection_screen()
+        self.current_level = 4  # Sempre começa no nível 1
         
         # Limpa todos os sprites
         self.all_sprites = pygame.sprite.LayeredUpdates()
