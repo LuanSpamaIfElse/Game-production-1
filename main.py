@@ -29,18 +29,20 @@ class Game:
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
-        self.bats = pygame.sprite.LayeredUpdates()
+        self.bats = pygame.sprite.LayeredUpdates() # Mantido como bats
         self.attacks = pygame.sprite.LayeredUpdates()
         self.npcs = pygame.sprite.LayeredUpdates()
         self.water = pygame.sprite.LayeredUpdates()
-        
+        self.bosses = pygame.sprite.LayeredUpdates() # Novo grupo para o boss
+        self.fire_areas = pygame.sprite.LayeredUpdates() # Novo grupo para áreas de fogo
+
         self.Player1_spritesheet = Spritesheet('sprt/img/character.png')
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
         self.obstacle_spritesheet = Spritesheet('sprt/terrain/TreesSpr.png')
         self.portal_spritsheet = Spritesheet('sprt/terrain/portalpurplespr.png')
         self.enemy_spritesheet = Spritesheet('sprt/img/enemy.png')
         self.enemycoin_spritesheet = Spritesheet('sprt/img/enemy.png')
-        self.bat_spritesheet = Spritesheet('sprt/npc/bat.png')
+        self.bats_spritesheet = Spritesheet('sprt/npc/bat.png')
         self.coin = Spritesheet('sprt/img/coin_spr.png')
         self.attack_spritsheet = Spritesheet('sprt/guts-spr-full_noise1_scale.png')
         self.plant_spritesheet = Spritesheet('sprt/terrain/terrain.png')
@@ -201,11 +203,13 @@ class Game:
         # Limpa todos os sprites
         self.all_sprites.empty()
         self.blocks.empty()
-        self.bat.empty()
+        self.bats.empty() # Corrigido para bats
         self.enemies.empty()
         self.attacks.empty()
         self.npcs.empty()
         self.water.empty()
+        self.bosses.empty() # Limpa o grupo do boss ao mudar de nível
+        self.fire_areas.empty() # Limpa as áreas de fogo
 
         # Verifica se deve carregar a loja ou o próximo nível normal
         if getattr(self, 'loading_store', False):
@@ -222,8 +226,9 @@ class Game:
             music = MUSIC_LEVELS.get('store')
             create_player = True
 
-        if self.current_level > self.max_levels:
-            print("Todos os níveis completados!")
+        if self.current_level > self.max_levels: # Verifica se é o último nível antes do boss
+            print("Todos os níveis normais completados! Preparando para o boss...")
+            self.load_boss_level() # Chama o método para carregar o nível do boss
             return
 
         print(f"Loading {next_map}")
@@ -246,12 +251,45 @@ class Game:
                 print(f"Erro ao carregar música: {e}")
 
 
+    def load_boss_level(self):
+        # Limpa todos os sprites novamente para o nível do boss
+        self.all_sprites.empty()
+        self.blocks.empty()
+        self.enemies.empty()
+        self.bats.empty()
+        self.attacks.empty()
+        self.npcs.empty()
+        self.water.empty()
+        self.bosses.empty()
+        self.fire_areas.empty()
+
+        # Carrega o mapa do boss (o último mapa na sua lista MAPS em sprites.py)
+        self.createTilemap(create_player=True, force_map='boss_arena') # Adicionado 'boss_arena' como um identificador
+        
+        # Mantém a vida e moedas do jogador, recria o player no novo mapa
+        if hasattr(self, 'player'):
+            self.player.life = self.player.life # Mantém a vida atual
+            self.player.coins = self.player.coins # Mantém as moedas atuais
+
+        print("Carregando mapa do boss!")
+        # Adicione música específica para o boss, se tiver
+        try:
+            # Assumindo que a música do boss está em MUSIC_LEVELS['boss']
+            pygame.mixer.music.load(MUSIC_LEVELS.get('boss', MUSIC_LEVELS[1]))
+            pygame.mixer.music.play(-1)
+            pygame.mixer.music.set_volume(0.15)
+        except Exception as e:
+            print(f"Erro ao carregar música do boss: {e}")
+
+
                 
     def createTilemap(self, create_player=True, force_map=None):
         try:
             # Determina qual mapa usar
             if force_map == 'store':
                 current_tilemap = store
+            elif force_map == 'boss_arena': # Nova condição para o mapa do boss
+                current_tilemap = MAPS[-1] # Pega o último mapa da lista, que é a arena do boss
             elif self.current_level == 1:
                 current_tilemap = tilemap
             elif self.current_level == 2:
@@ -268,7 +306,7 @@ class Game:
             obstacle_positions = []
             
             # Só adiciona obstáculos se não for a loja
-            if force_map != 'store' and self.current_level != 2:
+            if force_map not in ['store', 'boss_arena'] and self.current_level != 2: # Exclui boss_arena também
                 while len(obstacle_positions) < OBSTACLE_COUNT:
                     x = random.randint(0, len(temp_tilemap[0]) - 1)
                     y = random.randint(0, len(temp_tilemap) - 1)
@@ -282,15 +320,15 @@ class Game:
                     Ground1(self, j, i)
                     if column == "B":
                         Block(self, j, i)
-                    if column == "E" and force_map != 'store':  # Só inimigos fora da loja
+                    if column == "E" and force_map not in ['store', 'boss_arena']:  # Só inimigos fora da loja e arena do boss
                         enemy(self, j, i)
-                    if column == "C" and force_map != 'store':
+                    if column == "C" and force_map not in ['store', 'boss_arena']:
                         EnemyCoin(self, j, i)
                     if column == "P" and create_player:
                         self.player = Player(self, j, i)
                     if column == "Q":
                         Plant(self, j, i)
-                    if column == "O" and force_map != 'store' and self.current_level != 2:  # Só obstáculos fora da loja
+                    if column == "O" and force_map not in ['store', 'boss_arena'] and self.current_level != 2:
                         Obstacle(self, j, i)
                     if column == "S":
                         SlimeNPC(self, j, i)
@@ -304,6 +342,8 @@ class Game:
                         Water1(self, j, i)
                     if column == "G" and self.current_level == 3:
                         Bat(self, j, i)
+                    if column == "N": # Spawna Nero apenas na arena do boss
+                        self.nero = Nero(self, j, i)
                         
         except Exception as e:
             print(f"Erro ao criar tilemap: {e}")
@@ -323,15 +363,17 @@ class Game:
         pygame.mixer.init()
         self.playing = True
         self.character_selection_screen()
-        self.current_level = 4  # Sempre começa no nível 1
+        self.current_level = 1  # Sempre começa no nível 1, não no 4
         
         # Limpa todos os sprites
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
-        self.bat = pygame.sprite.LayeredUpdates()
+        self.bats = pygame.sprite.LayeredUpdates() # Corrigido para bats
         self.attacks = pygame.sprite.LayeredUpdates()
         self.npcs = pygame.sprite.LayeredUpdates()
+        self.bosses = pygame.sprite.LayeredUpdates() # Reinicia o grupo do boss
+        self.fire_areas = pygame.sprite.LayeredUpdates() # Reinicia o grupo de áreas de fogo
         
         # Cria o tilemap inicial (cria jogador automaticamente)
         self.createTilemap(create_player=True)
@@ -416,7 +458,14 @@ class Game:
         self.all_sprites.update()
     # Verifica inimigos e spawna portal se necessário
         self.check_enemies_and_spawn_portal()
-    
+
+        # Verifica se o boss foi derrotado
+        for boss in self.bosses:
+            if boss.life <= 0:
+                print("Nero derrotado!")
+                boss.kill() # Remove o boss do jogo
+                self.playing = False # Termina o jogo ou transiciona para a tela de vitória
+                self.win_screen() # Chama a tela de vitória
     
         if hasattr(self, 'player'):
             # Calcula o deslocamento necessário para centralizar o jogador
@@ -441,8 +490,12 @@ class Game:
         
         for enemy in self.enemies:
             enemy.draw_health_bar(self.screen)
-        for bat in self.bat:
-            bat.draw_health_bar(self.screen)
+        for bats in self.bats: # Corrigido para bats
+            bats.draw_health_bar(self.screen)
+        
+        # Desenha a barra de vida do boss se ele existir
+        for boss in self.bosses:
+            boss.draw_health_bar()
 
         for npc in self.npcs:
             if isinstance(npc, Seller2NPC):
@@ -483,6 +536,30 @@ class Game:
             self.screen.blit(restart_button.image, restart_button.rect)
             self.clock.tick(FPS)
             pygame.display.update()
+    
+    def win_screen(self): # Nova tela de vitória
+        text = self.font.render('VOCÊ VENCEU!', True, WHITE)
+        text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
+
+        restart_button = Button(10, WIN_HEIGHT - 60, 120, 50, WHITE, BLACK, 'Reiniciar', 32)
+        for sprite in self.all_sprites:
+            sprite.kill()
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_pressed = pygame.mouse.get_pressed()
+
+            if restart_button.is_pressed(mouse_pos, mouse_pressed):
+                self.new()
+                self.main()
+
+            self.screen.blit(self.intro_background, (0, 0)) # Pode ser uma imagem de vitória diferente
+            self.screen.blit(text, text_rect)
+            self.screen.blit(restart_button.image, restart_button.rect)
+            self.clock.tick(FPS)
+            pygame.display.update()
 
     def intro_screen(self):
         intro = True
@@ -518,7 +595,8 @@ class Game:
             pygame.display.update()
 
     def check_enemies_and_spawn_portal(self):
-        if len(self.enemies) == 0:
+        # Apenas cria portal se não for o nível do boss e não houver inimigos (e morcegos)
+        if len(self.enemies) == 0 and len(self.bats) == 0 and not any(isinstance(boss, Nero) for boss in self.bosses):
             # Procura por portais existentes primeiro
             for sprite in self.all_sprites:
                 if isinstance(sprite, Portal):
