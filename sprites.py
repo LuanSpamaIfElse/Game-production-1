@@ -282,7 +282,7 @@ class Player(pygame.sprite.Sprite):
     def collide_enemy(self):
     # Verifica colisão com inimigos normais e morcegos
         hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
-        hits_bats = pygame.sprite.spritecollide(self, self.game.bat, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
         
         # Se colidiu com qualquer inimigo e não está invulnerável
         if (hits_enemies or hits_bats) and not self.invulnerable:
@@ -582,20 +582,20 @@ class Bat(pygame.sprite.Sprite):
         # Animação
         self.animation_frames = {
             'left': [
-                self.game.bat_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
-                self.game.bat_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
+                self.game.bats_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
+                self.game.bats_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
             ],
             'right': [
-                self.game.bat_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
-                self.game.bat_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
+                self.game.bats_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
+                self.game.bats_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
            ],
             'up': [
-                self.game.bat_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
-                self.game.bat_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
+                self.game.bats_spritesheet.get_sprite(2, 8, self.width-2, self.height-2),
+                self.game.bats_spritesheet.get_sprite(33, 8, self.width-2, self.height-2)
             ],
             'down' :[
-                self.game.bat_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
-                self.game.bat_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
+                self.game.bats_spritesheet.get_sprite(5, 40, self.width-2, self.height-2),
+                self.game.bats_spritesheet.get_sprite(33, 40, self.width-2, self.height-2)
             ]
         }
         self.current_frame = 0
@@ -654,7 +654,7 @@ class Bat(pygame.sprite.Sprite):
             group.remove(self)
         
         # Verifica se todos os inimigos foram derrotados
-        if len(self.game.bat ) == 0:
+        if len(self.game.bats ) == 0:
             # Spawna o portal se não existir
             self.game.check_enemies_and_spawn_portal()
 
@@ -1176,6 +1176,245 @@ class Button:
                 return True
             return False
         return False
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+        #%
+class Nero(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = BOSS_LAYER
+        self.groups = self.game.all_sprites, self.game.bosses # Adiciona ao grupo de bosses
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILESIZES
+        self.y = y * TILESIZES
+        self.width = TILESIZES * 2  # Nero é alto, então 2 tiles de altura
+        self.height = TILESIZES * 2 # E 3 tiles de largura (ajuste conforme a proporção)
+
+        self.life = NERO_LIFE
+        self.max_life = NERO_LIFE
+        self.speed = NERO_SPEED
+
+        self.direction = 1 # 1 para baixo, -1 para cima
+        self.movement_limit_top = TILESIZES * 2 # Limite superior para movimento
+        self.movement_limit_bottom = WIN_HEIGHT - TILESIZES * 2 # Limite inferior para movimento
+
+        self.attack_cooldown = 2000 # Cooldown geral para ataques do Nero (2 segundos)
+        self.last_attack_time = pygame.time.get_ticks()
+        self.last_fire_damage_time = pygame.time.get_ticks()
+
+        # Representação inicial: um retângulo vermelho
+        self.image = pygame.Surface([self.width, self.height])
+        self.image.fill(RED)
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+        self.attacking = False
+        self.attack_type = None # 'whip' ou 'knife'
+
+        # Animações (comentadas por enquanto)
+        # self.walking_frames = {}
+        # self.whip_attack_frames = {}
+        # self.knife_attack_frames = {}
+        # self.death_frames = {}
+        # self.load_animations()
+        # self.current_frame = 0
+        # self.animation_speed = 0.1
+
+    def update(self):
+        self.movement()
+        self.check_player_distance_and_attack()
+        # self.animate() # Comentar por enquanto
+        
+        # Remove a área de fogo expirada
+        for fire_area in self.game.fire_areas:
+            fire_area.update()
+
+        if self.life <= 0:
+            # self.play_death_animation() # Comentar por enquanto
+            self.kill() # Remove o boss do jogo
+
+    def movement(self):
+        self.rect.y += self.direction * self.speed
+
+        if self.rect.bottom >= self.movement_limit_bottom:
+            self.direction = -1
+        if self.rect.top <= self.movement_limit_top:
+            self.direction = 1
+
+    def check_player_distance_and_attack(self):
+        if not hasattr(self.game, 'player') or self.attacking:
+            return
+
+        player_center = self.game.player.rect.center
+        nero_center = self.rect.center
+        distance = math.hypot(player_center[0] - nero_center[0], player_center[1] - nero_center[1])
+
+        now = pygame.time.get_ticks()
+
+        if now - self.last_attack_time > self.attack_cooldown:
+            if distance <= NERO_KNIFE_RANGE:
+                self.attack_type = 'knife'
+                self.attacking = True
+                self.knife_attack()
+                self.last_attack_time = now
+            elif distance <= NERO_WHIP_RANGE:
+                self.attack_type = 'whip'
+                self.attacking = True
+                self.whip_attack()
+                self.last_attack_time = now
+            else:
+                self.attacking = False # Não ataca se o jogador estiver muito longe ou muito perto para ataques específicos
+
+    def whip_attack(self):
+        print("Nero atacou com chicote!")
+        # Cria uma linha de ataque na direção do jogador
+        # Atinge em linha reta, então precisamos da direção
+        if not hasattr(self.game, 'player'):
+            return
+
+        player_pos = self.game.player.rect.center
+        nero_pos = self.rect.center
+
+        # Calcula a direção do chicote
+        dx = player_pos[0] - nero_pos[0]
+        dy = player_pos[1] - nero_pos[1]
+        
+        # Cria uma "área" de ataque do chicote (pode ser um retângulo fino)
+        # Por simplicidade, vamos criar uma área de fogo no local do jogador
+        # O dano do chicote em si é aplicado ao atingir o chão (onde a área de fogo aparece)
+        
+        # Cria a área de fogo no local do jogador
+        FireArea(self.game, player_pos[0], player_pos[1], NERO_FIRE_DAMAGE, FIRE_AREA_LIFETIME, FIRE_DAMAGE_INTERVAL)
+        
+        # O dano inicial do chicote pode ser aplicado diretamente se o jogador estiver na linha do chicote
+        # Para um chicote que atinge em linha reta e cria fogo no final, o dano direto pode ser na colisão inicial.
+        # Aqui, estamos assumindo que o dano é causado principalmente pela área de fogo.
+        # Se quiser dano direto, precisaria de uma sprite temporária para o chicote e verificar colisão.
+        
+        self.attacking = False
+
+
+    def knife_attack(self):
+        print("Nero atacou com faca (giratório)!")
+        # Causa dano em área ao redor do Nero
+        if not hasattr(self.game, 'player'):
+            return
+
+        # Verifica colisão com o jogador
+        player_center = self.game.player.rect.center
+        nero_center = self.rect.center
+        distance = math.hypot(player_center[0] - nero_center[0], player_center[1] - nero_center[1])
+
+        if distance <= NERO_KNIFE_RANGE: # Raio de ataque do giro
+            self.game.player.life -= NERO_KNIFE_DAMAGE
+            print(f"Player hit by Nero's knife! Life: {self.game.player.life}")
+        
+        self.attacking = False
+
+    def take_damage(self, amount):
+        self.life -= amount
+        print(f"Nero took {amount} damage! Life: {self.life}")
+
+    def draw_health_bar(self):
+        # Posição da barra de vida do Nero (acima da cabeça dele)
+        bar_x = self.rect.x
+        bar_y = self.rect.y - 15
+        bar_width = self.width
+        bar_height = 10
+
+        # Desenha o fundo da barra de vida (vermelho)
+        pygame.draw.rect(self.game.screen, RED, (bar_x, bar_y, bar_width, bar_height))
+
+        # Calcula a largura da vida atual
+        current_health_width = (self.life / self.max_life) * bar_width
+        pygame.draw.rect(self.game.screen, GREEN, (bar_x, bar_y, current_health_width, bar_height))
+
+    # def load_animations(self):
+    #     # Carrega as spritesheets e define os frames para cada animação
+    #     self.walking_frames = {
+    #         'up': [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...],
+    #         'down': [...],
+    #     }
+    #     self.whip_attack_frames = {
+    #         'attack1': [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...],
+    #         'attack2': [...],
+    #     }
+    #     self.knife_attack_frames = {
+    #         'spin1': [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...],
+    #         'spin2': [...],
+    #     }
+    #     self.death_frames = [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...]
+
+    # def animate(self):
+    #     # Lógica para animar o Nero baseado no estado (andando, atacando, morrendo)
+    #     if self.attacking:
+    #         if self.attack_type == 'whip':
+    #             # self.image = self.whip_attack_frames[self.current_frame]
+    #             pass
+    #         elif self.attack_type == 'knife':
+    #             # self.image = self.knife_attack_frames[self.current_frame]
+    #             pass
+    #     else:
+    #         # Lógica de animação de caminhada
+    #         # self.image = self.walking_frames[self.direction_as_string][self.current_frame]
+    #         pass
+    #     self.image.set_colorkey(BLACK)
+
+    # def play_death_animation(self):
+    #     # Exibe a animação de morte
+    #     # Pode ser um loop de frames de morte antes de kill()
+    #     pass
+
+
+class FireArea(pygame.sprite.Sprite):
+    def __init__(self, game, x, y, damage, lifetime, damage_interval):
+        self.game = game
+        self._layer = GROUND_LAYER # Ou uma camada acima para visibilidade
+        self.groups = self.game.all_sprites, self.game.fire_areas
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x
+        self.y = y
+        self.width = TILESIZES * 2 # Tamanho da área de fogo
+        self.height = TILESIZES * 2
+
+        self.damage = damage
+        self.lifetime = lifetime
+        self.damage_interval = damage_interval
+        self.spawn_time = pygame.time.get_ticks()
+        self.last_damage_time = pygame.time.get_ticks()
+
+        # Representação: um quadrado laranja/vermelho
+        self.image = pygame.Surface([self.width, self.height], pygame.SRCALPHA)
+        self.image.fill((255, 100, 0, 150)) # Laranja transparente
+        self.rect = self.image.get_rect()
+        self.rect.center = (self.x, self.y)
+
+    def update(self):
+        # Verifica o tempo de vida da área de fogo
+        if pygame.time.get_ticks() - self.spawn_time > self.lifetime:
+            self.kill()
+
+    def deal_damage(self):
+        now = pygame.time.get_ticks()
+        if now - self.last_damage_time > self.damage_interval:
+            self.game.player.life -= self.damage
+            print(f"Player took {self.damage} fire damage! Life: {self.game.player.life}")
+            self.last_damage_time = now
 
 class SwordAttack(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
@@ -1198,13 +1437,13 @@ class SwordAttack(pygame.sprite.Sprite):
 
     def collide(self):
         hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
-        hits_bats = pygame.sprite.spritecollide(self, self.game.bat, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
 
         for enemy in hits_enemies:
             enemy.take_damage(self.game.player.damage)  # Passa o dano do jogador
 
-        for bat in hits_bats:
-            bat.take_damage(self.game.player.damage)  # Passa o dano do jogador
+        for bats in hits_bats:
+            bats.take_damage(self.game.player.damage)  # Passa o dano do jogador
 
     def update(self):
         self.animate()
