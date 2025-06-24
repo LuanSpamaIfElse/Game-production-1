@@ -13,10 +13,15 @@ NPC_LAYER = 4
 BLOCK_LAYER = 3
 GROUND_LAYER = 2
 ITEM_LAYER = 4
+BOSS_LAYER = 4 # Nova camada para o boss
+
 
 #PLAYER_LIFE = 20
 ENEMY_LIFE = 1
 BAT_LIFE = 1
+NERO_LIFE = 500  # Vida do Nero
+NERO_SPEED = 5 # Velocidade do Nero
+
 
 #self.base_speed = 4
 ENEMY_SPEED = 1.0
@@ -24,6 +29,15 @@ BAT_SPEED = 5.5
 
 #DAMAGE
 #PLAYER_DAMAGE = 4
+NERO_WHIP_DAMAGE = 15 # Dano do chicote
+NERO_FIRE_DAMAGE = 5 # Dano da área de fogo
+NERO_KNIFE_DAMAGE = 25 # Dano do ataque giratório
+
+NERO_WHIP_RANGE = 250 # Distância para o ataque de chicote
+NERO_KNIFE_RANGE = 70 # Distância para o ataque de faca
+
+FIRE_AREA_LIFETIME = 3000 # Tempo de duração da área de fogo em ms
+FIRE_DAMAGE_INTERVAL = 500 # Intervalo de dano da área de fogo em ms
 
 # Adicione no config.py
 # Configurações da tela de seleção
@@ -31,7 +45,6 @@ CHAR_SELECT_TITLE = "Escolha seu Jogador"
 CHAR_SELECT_FONT_SIZE = 36
 CHAR_DESC_FONT_SIZE = 22
 CHAR_ARROW_SIZE = 50
-
 # Personagens
 
 # Atributos dos personagens
@@ -163,7 +176,7 @@ tilemap = [
     'B.P.....O........................................B',
     'B....S...O.......................................B',
     'BOQQOOOOO........................................B',
-    'B..Q....C........................................B',
+    'B..Q....C.........N..............................B',
     'B................................................B',
     'BQ.........................Q.....................B',
     'B.QQ...............Q.............................B',
