@@ -19,14 +19,14 @@ BOSS_LAYER = 4 # Nova camada para o boss
 #PLAYER_LIFE = 20
 ENEMY_LIFE = 1
 BAT_LIFE = 1
-NERO_LIFE = 500  # Vida do Nero
-NERO_SPEED = 5 # Velocidade do Nero
+NERO_LIFE = 25 # Vida do Nero
+ # Velocidade do Nero
 
 
 #self.base_speed = 4
 ENEMY_SPEED = 1.0
 BAT_SPEED = 5.5
-
+NERO_SPEED = 2.5
 #DAMAGE
 #PLAYER_DAMAGE = 4
 NERO_WHIP_DAMAGE = 15 # Dano do chicote
@@ -36,8 +36,8 @@ NERO_KNIFE_DAMAGE = 25 # Dano do ataque giratório
 NERO_WHIP_RANGE = 250 # Distância para o ataque de chicote
 NERO_KNIFE_RANGE = 70 # Distância para o ataque de faca
 
-FIRE_AREA_LIFETIME = 3000 # Tempo de duração da área de fogo em ms
-FIRE_DAMAGE_INTERVAL = 500 # Intervalo de dano da área de fogo em ms
+FIRE_AREA_LIFETIME = 1500 # Tempo de duração da área de fogo em ms
+FIRE_DAMAGE_INTERVAL = 1000 # Intervalo de dano da área de fogo em ms
 
 # Adicione no config.py
 # Configurações da tela de seleção
@@ -51,7 +51,7 @@ CHAR_ARROW_SIZE = 50
 PLAYER1_ATTR = {
     "name": "Bebê Reborn",
     "life": 18,
-    "damage": 50,
+    "damage": 5,
     "speed": 5,
     "sprite": "sprt/PLAYERS/single.png",
     "description": "Ataques rápidos e precisos usando uma lâmina",
@@ -71,7 +71,7 @@ PLAYER2_ATTR = {
 PLAYER3_ATTR = {
     "name": "Blyat",
     "life": 25,
-    "damage": 8,
+    "damage": 10,
     "speed": 3,
     "sprite": "sprt/PLAYERS/player3tst.png",
     "description": "Grande resistência e força",
