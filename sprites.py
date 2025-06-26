@@ -105,7 +105,7 @@ class Player(pygame.sprite.Sprite):
         if health_width > 0:
             pygame.draw.rect(surface, health_color, health_rect)
 
-    def take_damage(self):
+    def take_damage(self, amount=1):
         if not self.invulnerable:
             self.life -= 1
             self.invulnerable = True
@@ -218,6 +218,10 @@ class Player(pygame.sprite.Sprite):
             if current_time - self.last_water_damage_time >= 150:  # 1/2 segundo
                 self.take_damage()
                 self.last_water_damage_time = current_time
+        if self.life <= 0:
+            self.kill()
+            return  # Impede que o resto do update seja executado para um jogador morto
+
         
         # Remove invulnerabilidade após 1 segundo
         if self.invulnerable and pygame.time.get_ticks() - self.invulnerable_time > 1000:
@@ -1195,27 +1199,30 @@ class Nero(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = BOSS_LAYER
-        self.groups = self.game.all_sprites, self.game.bosses # Adiciona ao grupo de bosses
+        self.groups = self.game.all_sprites, self.game.bosses
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         self.x = x * TILESIZES
         self.y = y * TILESIZES
-        self.width = TILESIZES * 2  # Nero é alto, então 2 tiles de altura
-        self.height = TILESIZES * 2 # E 3 tiles de largura (ajuste conforme a proporção)
+        self.width = TILESIZES * 2
+        self.height = TILESIZES * 2
 
         self.life = NERO_LIFE
         self.max_life = NERO_LIFE
         self.speed = NERO_SPEED
+        self.y_change = 0
 
-        self.direction = 1 # 1 para baixo, -1 para cima
-        self.movement_limit_top = TILESIZES * 2 # Limite superior para movimento
-        self.movement_limit_bottom = WIN_HEIGHT - TILESIZES * 2 # Limite inferior para movimento
-
-        self.attack_cooldown = 2000 # Cooldown geral para ataques do Nero (2 segundos)
+        self.direction = 1  # 1 para baixo, -1 para cima
+        
+        self.attack_cooldown = 2000
         self.last_attack_time = pygame.time.get_ticks()
-        self.last_fire_damage_time = pygame.time.get_ticks()
+        
+        # CORRIGIDO: Adiciona sistema de invulnerabilidade
+        self.invulnerable = False
+        self.invulnerable_time = 0
+        self.invulnerability_duration = 500 # 0.5 segundos
 
-        # Representação inicial: um retângulo vermelho
+        # Placeholder da imagem
         self.image = pygame.Surface([self.width, self.height])
         self.image.fill(RED)
         self.rect = self.image.get_rect()
@@ -1223,40 +1230,48 @@ class Nero(pygame.sprite.Sprite):
         self.rect.y = self.y
 
         self.attacking = False
-        self.attack_type = None # 'whip' ou 'knife'
-
-        # Animações (comentadas por enquanto)
-        # self.walking_frames = {}
-        # self.whip_attack_frames = {}
-        # self.knife_attack_frames = {}
-        # self.death_frames = {}
-        # self.load_animations()
-        # self.current_frame = 0
-        # self.animation_speed = 0.1
+        self.attack_type = None
 
     def update(self):
+        now = pygame.time.get_ticks()
+        
+        # CORRIGIDO: Lógica de invulnerabilidade
+        if self.invulnerable and now - self.invulnerable_time > self.invulnerability_duration:
+            self.invulnerable = False
+
         self.movement()
         self.check_player_distance_and_attack()
-        # self.animate() # Comentar por enquanto
         
-        # Remove a área de fogo expirada
+        # Aplica movimento e checa colisão
+        self.rect.y += self.y_change
+        self.collide_blocks('y') # CORRIGIDO: Checa colisão com paredes
+        
+        # Atualiza áreas de fogo
         for fire_area in self.game.fire_areas:
             fire_area.update()
 
         if self.life <= 0:
-            # self.play_death_animation() # Comentar por enquanto
-            self.kill() # Remove o boss do jogo
+            self.kill()
 
     def movement(self):
-        self.rect.y += self.direction * self.speed
+        # A direção é trocada quando colide, não baseada em posição fixa
+        self.y_change = self.direction * self.speed
 
-        if self.rect.bottom >= self.movement_limit_bottom:
-            self.direction = -1
-        if self.rect.top <= self.movement_limit_top:
-            self.direction = 1
+    # CORRIGIDO: Adicionado método de colisão com blocos
+    def collide_blocks(self, direction):
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        if direction == "y" and hits:
+            if self.y_change > 0: # Movendo para baixo
+                self.rect.bottom = hits[0].rect.top
+                self.direction = -1 # Muda para cima
+            if self.y_change < 0: # Movendo para cima
+                self.rect.top = hits[0].rect.bottom
+                self.direction = 1 # Muda para baixo
+            self.y_change = 0
+
 
     def check_player_distance_and_attack(self):
-        if not hasattr(self.game, 'player') or self.attacking:
+        if not hasattr(self.game, 'player') or self.game.player.life <= 0 or self.attacking:
             return
 
         player_center = self.game.player.rect.center
@@ -1266,119 +1281,81 @@ class Nero(pygame.sprite.Sprite):
         now = pygame.time.get_ticks()
 
         if now - self.last_attack_time > self.attack_cooldown:
-            if distance <= NERO_KNIFE_RANGE:
-                self.attack_type = 'knife'
-                self.attacking = True
+            # Decide o ataque com base na distância
+            attack_choice = random.choice(['whip', 'knife'])
+
+            if attack_choice == 'knife' and distance <= NERO_KNIFE_RANGE:
                 self.knife_attack()
-                self.last_attack_time = now
-            elif distance <= NERO_WHIP_RANGE:
-                self.attack_type = 'whip'
-                self.attacking = True
+            elif attack_choice == 'whip' and distance <= NERO_WHIP_RANGE:
                 self.whip_attack()
-                self.last_attack_time = now
-            else:
-                self.attacking = False # Não ataca se o jogador estiver muito longe ou muito perto para ataques específicos
+            
+            # Tenta o outro ataque se o primeiro não estiver no alcance
+            elif distance <= NERO_WHIP_RANGE:
+                 self.whip_attack()
+            elif distance <= NERO_KNIFE_RANGE:
+                 self.knife_attack()
+
 
     def whip_attack(self):
         print("Nero atacou com chicote!")
-        # Cria uma linha de ataque na direção do jogador
-        # Atinge em linha reta, então precisamos da direção
+        self.attacking = True
+        self.last_attack_time = pygame.time.get_ticks()
+        
         if not hasattr(self.game, 'player'):
+            self.attacking = False
             return
-
+            
         player_pos = self.game.player.rect.center
-        nero_pos = self.rect.center
-
-        # Calcula a direção do chicote
-        dx = player_pos[0] - nero_pos[0]
-        dy = player_pos[1] - nero_pos[1]
-        
-        # Cria uma "área" de ataque do chicote (pode ser um retângulo fino)
-        # Por simplicidade, vamos criar uma área de fogo no local do jogador
-        # O dano do chicote em si é aplicado ao atingir o chão (onde a área de fogo aparece)
-        
-        # Cria a área de fogo no local do jogador
+        # Cria a área de fogo na posição do jogador
         FireArea(self.game, player_pos[0], player_pos[1], NERO_FIRE_DAMAGE, FIRE_AREA_LIFETIME, FIRE_DAMAGE_INTERVAL)
-        
-        # O dano inicial do chicote pode ser aplicado diretamente se o jogador estiver na linha do chicote
-        # Para um chicote que atinge em linha reta e cria fogo no final, o dano direto pode ser na colisão inicial.
-        # Aqui, estamos assumindo que o dano é causado principalmente pela área de fogo.
-        # Se quiser dano direto, precisaria de uma sprite temporária para o chicote e verificar colisão.
         
         self.attacking = False
 
-
     def knife_attack(self):
         print("Nero atacou com faca (giratório)!")
-        # Causa dano em área ao redor do Nero
+        self.attacking = True
+        self.last_attack_time = pygame.time.get_ticks()
+
         if not hasattr(self.game, 'player'):
+            self.attacking = False
             return
 
-        # Verifica colisão com o jogador
         player_center = self.game.player.rect.center
         nero_center = self.rect.center
         distance = math.hypot(player_center[0] - nero_center[0], player_center[1] - nero_center[1])
 
-        if distance <= NERO_KNIFE_RANGE: # Raio de ataque do giro
-            self.game.player.life -= NERO_KNIFE_DAMAGE
-            print(f"Player hit by Nero's knife! Life: {self.game.player.life}")
+        if distance <= NERO_KNIFE_RANGE + 20: # Aumenta um pouco a área para garantir o acerto
+            # CORRIGIDO: Usa o método take_damage do jogador
+            self.game.player.take_damage(NERO_KNIFE_DAMAGE)
+            print(f"Player atingido pela faca de Nero! Vida: {self.game.player.life}")
         
         self.attacking = False
 
+    # CORRIGIDO: Lógica de dano e invulnerabilidade
     def take_damage(self, amount):
-        self.life -= amount
-        print(f"Nero took {amount} damage! Life: {self.life}")
+        if not self.invulnerable:
+            self.life -= amount
+            self.invulnerable = True
+            self.invulnerable_time = pygame.time.get_ticks()
+            print(f"Nero sofreu {amount} de dano! Vida: {self.life}")
 
     def draw_health_bar(self):
-        # Posição da barra de vida do Nero (acima da cabeça dele)
         bar_x = self.rect.x
-        bar_y = self.rect.y - 15
+        bar_y = self.rect.y - 20
         bar_width = self.width
-        bar_height = 10
+        bar_height = 15
+        
+        border_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
+        bg_rect = border_rect.inflate(-2, -2)
 
-        # Desenha o fundo da barra de vida (vermelho)
-        pygame.draw.rect(self.game.screen, RED, (bar_x, bar_y, bar_width, bar_height))
-
-        # Calcula a largura da vida atual
-        current_health_width = (self.life / self.max_life) * bar_width
-        pygame.draw.rect(self.game.screen, GREEN, (bar_x, bar_y, current_health_width, bar_height))
-
-    # def load_animations(self):
-    #     # Carrega as spritesheets e define os frames para cada animação
-    #     self.walking_frames = {
-    #         'up': [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...],
-    #         'down': [...],
-    #     }
-    #     self.whip_attack_frames = {
-    #         'attack1': [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...],
-    #         'attack2': [...],
-    #     }
-    #     self.knife_attack_frames = {
-    #         'spin1': [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...],
-    #         'spin2': [...],
-    #     }
-    #     self.death_frames = [self.game.nero_spritesheet.get_sprite(x, y, w, h) for ...]
-
-    # def animate(self):
-    #     # Lógica para animar o Nero baseado no estado (andando, atacando, morrendo)
-    #     if self.attacking:
-    #         if self.attack_type == 'whip':
-    #             # self.image = self.whip_attack_frames[self.current_frame]
-    #             pass
-    #         elif self.attack_type == 'knife':
-    #             # self.image = self.knife_attack_frames[self.current_frame]
-    #             pass
-    #     else:
-    #         # Lógica de animação de caminhada
-    #         # self.image = self.walking_frames[self.direction_as_string][self.current_frame]
-    #         pass
-    #     self.image.set_colorkey(BLACK)
-
-    # def play_death_animation(self):
-    #     # Exibe a animação de morte
-    #     # Pode ser um loop de frames de morte antes de kill()
-    #     pass
-
+        health_ratio = self.life / self.max_life
+        health_width = int(bg_rect.width * health_ratio)
+        health_rect = pygame.Rect(bg_rect.x, bg_rect.y, health_width, bg_rect.height)
+        
+        pygame.draw.rect(self.game.screen, HEALTH_BAR_BORDER_COLOR, border_rect)
+        pygame.draw.rect(self.game.screen, HEALTH_BAR_BG_COLOR, bg_rect)
+        if health_width > 0:
+            pygame.draw.rect(self.game.screen, HEALTH_COLOR_HIGH, health_rect)
 
 class FireArea(pygame.sprite.Sprite):
     def __init__(self, game, x, y, damage, lifetime, damage_interval):
@@ -1389,8 +1366,8 @@ class FireArea(pygame.sprite.Sprite):
 
         self.x = x
         self.y = y
-        self.width = TILESIZES * 2 # Tamanho da área de fogo
-        self.height = TILESIZES * 2
+        self.width = TILESIZES +5 # Tamanho da área de fogo
+        self.height = TILESIZES +5
 
         self.damage = damage
         self.lifetime = lifetime
@@ -1408,6 +1385,9 @@ class FireArea(pygame.sprite.Sprite):
         # Verifica o tempo de vida da área de fogo
         if pygame.time.get_ticks() - self.spawn_time > self.lifetime:
             self.kill()
+
+        if hasattr(self.game, 'player') and self.rect.colliderect(self.game.player.rect):
+            self.deal_damage()
 
     def deal_damage(self):
         now = pygame.time.get_ticks()
@@ -1438,12 +1418,17 @@ class SwordAttack(pygame.sprite.Sprite):
     def collide(self):
         hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
         hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
+        hits_bosses = pygame.sprite.spritecollide(self, self.game.bosses, False)
 
         for enemy in hits_enemies:
             enemy.take_damage(self.game.player.damage)  # Passa o dano do jogador
 
         for bats in hits_bats:
             bats.take_damage(self.game.player.damage)  # Passa o dano do jogador
+
+        
+        for boss in hits_bosses:
+            boss.take_damage(self.game.player.damage)
 
     def update(self):
         self.animate()
