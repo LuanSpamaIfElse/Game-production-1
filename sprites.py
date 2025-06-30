@@ -29,8 +29,11 @@ class Player(pygame.sprite.Sprite):
         self.base_speed = self.game.player_attrs.get('speed', 4) # Pega a velocidade, com um padrão de 4
         sprite_path = self.game.player_attrs.get('sprite', 'sprt/PLAYERS/single.png') # Pega o caminho do sprite
         
-        # Carrega a spritesheet correta para o personagem
-        self.Player1_spritesheet = Spritesheet(sprite_path)
+        # Pega o caminho da spritesheet de animação correta
+        animation_sheet_path = self.game.player_attrs.get('animation_sheet', 'sprt/img/character.png')
+        
+        # Carrega a spritesheet correta para o personagem selecionado
+        self.character_spritesheet = Spritesheet(animation_sheet_path)
         
         # Propriedades básicas
         self.x = x * TILESIZES
@@ -116,6 +119,9 @@ class Player(pygame.sprite.Sprite):
     def can_attack(self):
         current_time = pygame.time.get_ticks()
         return current_time - self.last_attack_time >= ATTACK_COOLDOWN * self.attack_cooldown_multiplier
+
+        cooldown = ARROW_COOLDOWN if self.char_type == 'archer' else ATTACK_COOLDOWN
+        return current_time - self.last_attack_time >= cooldown * self.attack_cooldown_multiplier
         
     def can_dodge(self):
         if self.char_type != 'swordsman':
@@ -126,31 +132,35 @@ class Player(pygame.sprite.Sprite):
         elapsed = pygame.time.get_ticks() - self.last_attack_time
         return min(elapsed / (ATTACK_COOLDOWN * self.attack_cooldown_multiplier), 1.0)
 
+        cooldown = ARROW_COOLDOWN if self.char_type == 'archer' else ATTACK_COOLDOWN
+        return min(elapsed / (cooldown * self.attack_cooldown_multiplier), 1.0)
+
     def get_dodge_cooldown_ratio(self):
         elapsed = pygame.time.get_ticks() - self.last_dodge_time
         return min(elapsed / (self.dodge_cooldown * self.dodge_cooldown_multiplier), 1.0)
     
     def load_animations(self):
+        # AGORA USA a character_spritesheet que foi carregada para o personagem específico
         self.animation_frames = {
             'left': [
-                self.game.Player1_spritesheet.get_sprite(3, 98, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(35, 98, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(68, 98, self.width, self.height)
+                self.character_spritesheet.get_sprite(3, 98, self.width, self.height),
+                self.character_spritesheet.get_sprite(35, 98, self.width, self.height),
+                self.character_spritesheet.get_sprite(68, 98, self.width, self.height)
             ],
             'right': [
-                self.game.Player1_spritesheet.get_sprite(3, 66, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(35, 66, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(68, 66, self.width, self.height)
+                self.character_spritesheet.get_sprite(3, 66, self.width, self.height),
+                self.character_spritesheet.get_sprite(35, 66, self.width, self.height),
+                self.character_spritesheet.get_sprite(68, 66, self.width, self.height)
             ],
             'up': [
-                self.game.Player1_spritesheet.get_sprite(3, 35, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(35, 35, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(68, 35, self.width, self.height)
+                self.character_spritesheet.get_sprite(3, 35, self.width, self.height),
+                self.character_spritesheet.get_sprite(35, 35, self.width, self.height),
+                self.character_spritesheet.get_sprite(68, 35, self.width, self.height)
             ],
             'down': [
-                self.game.Player1_spritesheet.get_sprite(3, 2, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(35, 2, self.width, self.height),
-                self.game.Player1_spritesheet.get_sprite(65, 2, self.width, self.height)
+                self.character_spritesheet.get_sprite(3, 2, self.width, self.height),
+                self.character_spritesheet.get_sprite(35, 2, self.width, self.height),
+                self.character_spritesheet.get_sprite(65, 2, self.width, self.height)
             ]
         }
 
@@ -569,7 +579,7 @@ class Bat(pygame.sprite.Sprite):
         self.life = BAT_LIFE
         self.speed = BAT_SPEED
         self._layer = ENEMY_LAYER
-        self.groups = self.game.all_sprites, self.game.bat
+        self.groups = self.game.all_sprites, self.game.bats
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         self.x = x * TILESIZES
@@ -1466,6 +1476,82 @@ class SwordAttack(pygame.sprite.Sprite):
         self.animation_loop += 0.5
         if self.animation_loop >= 2:
             self.kill()  # Ajuste este valor conforme necessário
+
+class Arrow(pygame.sprite.Sprite):
+    """
+    Representa uma flecha disparada pelo jogador arqueiro.
+    """
+    def __init__(self, game, x, y, direction):
+        self.game = game
+        self._layer = PLAYER_LAYER  # Camada da flecha para que apareça corretamente
+        self.groups = self.game.all_sprites, self.game.arrows
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x
+        self.y = y
+        self.direction = direction
+        self.speed = 10  # Velocidade da flecha
+        self.max_distance = 256  # Distância máxima que a flecha percorre
+        self.traveled_distance = 0
+        self.state = 'flying'  # Estado inicial: 'flying' ou 'fallen'
+        self.fallen_lifetime = 3000  # Tempo que a flecha fica no chão (3 segundos)
+
+        # Carrega os sprites da flecha.
+        # NOTA: As coordenadas (x, y, width, height) podem precisar de ajuste
+        # dependendo do seu arquivo 'arrow_spr.png'.
+        self.flying_sprites = {
+            'up': self.game.arrows_spritesheet.get_sprite(13, 25, 10, 16),
+            'down': self.game.arrows_spritesheet.get_sprite(22, 26, 10, 16),
+            'left': self.game.arrows_spritesheet.get_sprite(25, 0, 14, 10),
+            'right': self.game.arrows_spritesheet.get_sprite(5, 0, 14, 9)
+        }
+        self.fallen_sprite = self.game.arrows_spritesheet.get_sprite(33, 26, 10,16)
+
+        self.image = self.flying_sprites.get(self.direction)
+        self.rect = self.image.get_rect(center=(x, y))
+
+    def update(self):
+        """Atualiza a posição e o estado da flecha."""
+        if self.state == 'flying':
+            self.move()
+            self.traveled_distance += self.speed
+            if self.traveled_distance >= self.max_distance:
+                self.fall()
+            else:
+                self.check_collisions()
+        elif self.state == 'fallen':
+            if pygame.time.get_ticks() - self.fall_time > self.fallen_lifetime:
+                self.kill()
+
+    def move(self):
+        """Move a flecha na direção correta."""
+        if self.direction == 'up':
+            self.rect.y -= self.speed
+        elif self.direction == 'down':
+            self.rect.y += self.speed
+        elif self.direction == 'left':
+            self.rect.x -= self.speed
+        elif self.direction == 'right':
+            self.rect.x += self.speed
+
+    def check_collisions(self):
+        """Verifica colisões com paredes e inimigos."""
+        if pygame.sprite.spritecollide(self, self.game.blocks, False):
+            self.fall()
+            return
+
+        all_enemies = self.game.enemies.sprites() + self.game.bats.sprites() + self.game.bosses.sprites()
+        for enemy in pygame.sprite.spritecollide(self, all_enemies, False):
+            enemy.take_damage(self.game.player.damage)
+            self.kill()
+            return
+
+    def fall(self):
+        """Muda o estado da flecha para 'caída'."""
+        self.state = 'fallen'
+        self.image = self.fallen_sprite
+        self.fall_time = pygame.time.get_ticks()
+
 class DialogBox:
     def __init__(self, game):
         self.game = game
