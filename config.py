@@ -48,14 +48,16 @@ CHAR_ARROW_SIZE = 50
 # Personagens
 
 # Atributos dos personagens
+
 PLAYER1_ATTR = {
     "name": "Bebê Reborn",
     "life": 18,
     "damage": 5,
     "speed": 5,
-    "sprite": "sprt/PLAYERS/single.png",
+    "sprite": "sprt/PLAYERS/single.png", # Imagem da tela de seleção
+    "animation_sheet": "sprt/img/character.png", # Spritesheet para as animações
     "description": "Ataques rápidos e precisos usando uma lâmina",
-    "type": "swordsman"  # <-- ADD THIS LINE
+    "type": "swordsman"
 }
 
 PLAYER2_ATTR = {
@@ -63,9 +65,10 @@ PLAYER2_ATTR = {
     "life": 18,
     "damage": 3,
     "speed": 5,
-    "sprite": "sprt/PLAYERS/player2tst.png",
+    "sprite": "sprt/PLAYERS/player2tst.png", # Imagem da tela de seleção
+    "animation_sheet": "sprt/img/character.png", # Exemplo de caminho para a spritesheet do P2
     "description": "Dispara flechas com uma mira precisa",
-    "type": "archer"  # <-- ADD THIS LINE
+    "type": "archer"
 }
 
 PLAYER3_ATTR = {
@@ -73,10 +76,12 @@ PLAYER3_ATTR = {
     "life": 25,
     "damage": 10,
     "speed": 3,
-    "sprite": "sprt/PLAYERS/player3tst.png",
+    "sprite": "sprt/PLAYERS/player3tst.png", # Imagem da tela de seleção
+    "animation_sheet": "sprt/img/character.png", # Exemplo de caminho para a spritesheet do P3
     "description": "Grande resistência e força",
-    "type": "tank"  # <-- ADD THIS LINE
+    "type": "tank"
 }
+
 
 CHARACTERS = {
     1: PLAYER1_ATTR,
@@ -87,6 +92,7 @@ CHARACTERS = {
 # Cooldowns das habilidades
 ATTACK_COOLDOWN = 1000  # 1 segundos em milissegundos
 DODGE_COOLDOWN = 3000   # 3 segundos em milissegundos
+ARROW_COOLDOWN = 3500
 
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
@@ -166,8 +172,8 @@ SongFlorest = 'audios/som_da_floresta (mp3).mp3'
 # Músicas para cada nível
 MUSIC_LEVELS = {
     1: 'audios/som_da_floresta (mp3).mp3',
-    2: 'audios/som_da_floresta (mp3)mp3',
-    'store': 'audios/som_da_floresta (mp3)mp3'
+    2: 'audios/som_da_floresta (mp3).mp3',
+    'store': 'audios/som_da_floresta (mp3).mp3'
 }
 #fases
 tilemap = [
@@ -176,7 +182,7 @@ tilemap = [
     'B.P.....O........................................B',
     'B....S...O.......................................B',
     'BOQQOOOOO........................................B',
-    'B..Q....C.........N..............................B',
+    'B..Q....C........................................B',
     'B................................................B',
     'BQ.........................Q.....................B',
     'B.QQ...............Q.............................B',
@@ -211,19 +217,19 @@ tilemap2 = [
     'B....WWWQWWWWW..................WWQQWW......WW...B',
     'B......WQQWW.............C.......QQQ....W..WW....B',
     'B......WWWWWW....................QWW.........W...B',
-    'B.....QWQQWWW..........E.........WWWWW.....WWWQ..B',
+    'B.....QWQQWWW..........E.........WWWWWW.....WWWQ.B',
     'B.....WWWWWWWWWWWWWW...........WWWWWWW...WWWWW...B',
     'B......WWWWWQQWWWWW..........WWWWWWWWWWWWQQWW....B',
     'B......WWWWWW....WW......E.......WWWWWWW.WWWWW...B',
     'B......WWWWWWWWWWWWW...........WWWWWWWQWWWWWW....B',
-    'B......WQWWWWWQWWWWWWWWWWWW..QWWWWWWWWWWW..WWW...B',
+    'B......WQWWWWWQWWWWWWWWWWWW..QWWWWWWWWWWWWW..W...B',
     'B.....WWWWWWWWWWWWWWWQQWWWWQQ.WWWWWWW......WWWW..B',
     'B......WWWQQWWWW..WWWWWWWW..Q..........WWQWWWW...B',
     'B.......WWWWWWWWWWWWWWWWWWWWWWW..........WWWWW...B',
     'B......WWWWWWW.......WWWWWW.WWWWWWW......WW.WWQ..B',
     'B......QQ...........WQQWW...W.QQQ...E....WW.WQ...B',
     'B........QQW..........QQ.....Q..........WWWQWWQ..B',
-    'B......QWWWWWWWWWWWWWWWQQWWWWQ.....WWWWWWWWWWW..PB',
+    'B......QWWWWWWWWWWWWWWWQQWWWWQ.....WWWWWWWWWWWW.PB',
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 ]
 
@@ -295,4 +301,17 @@ store = [
     'B.......................TB',
     'B.........P..............B',
     'BBBBBBBBBBBBBBBBBBBBBBBBBB'
+]
+boss_arena = [
+    'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+    'B.QQQP.Q......O.........................B',
+    'B...QQ.QQ.........................N.....B',
+    'B..........E...C........................B',
+    'B.......................................B',
+    'B.....E.........QQQ.....Q...............B',
+    'B..........E............................B',
+    'B...QQ.........C........................B',
+    'B.............................QQ........B',
+    'B.......................................B',
+    'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
 ]
