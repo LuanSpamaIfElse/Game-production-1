@@ -27,6 +27,7 @@ class Game:
         
         # Inicializa grupos de sprites
         self.all_sprites = pygame.sprite.LayeredUpdates()
+        self.arrows = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
         self.bats = pygame.sprite.LayeredUpdates() # Mantido como bats
@@ -35,8 +36,8 @@ class Game:
         self.water = pygame.sprite.LayeredUpdates()
         self.bosses = pygame.sprite.LayeredUpdates() # Novo grupo para o boss
         self.fire_areas = pygame.sprite.LayeredUpdates() # Novo grupo para áreas de fogo
-
-        self.Player1_spritesheet = Spritesheet('sprt/img/character.png')
+        self.arrows_spritesheet = Spritesheet('sprt/img/arrow_spr.png')
+        #self.Player1_spritesheet = Spritesheet('sprt/img/character.png')
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
         self.obstacle_spritesheet = Spritesheet('sprt/terrain/TreesSpr.png')
         self.portal_spritsheet = Spritesheet('sprt/terrain/portalpurplespr.png')
@@ -196,42 +197,44 @@ class Game:
             print(f"Erro ao carregar música: {e}")
         
         self.new()
+        #
     def next_level(self):
-        player_life = self.player.life if hasattr(self, 'player') else PLAYER_LIFE
+        player_life = self.player.life if hasattr(self, 'player') else 20 # Usando o padrão de vida
         player_coins = self.player.coins if hasattr(self, 'player') else 0
 
         # Limpa todos os sprites
         self.all_sprites.empty()
+        self.arrows.empty()
         self.blocks.empty()
-        self.bats.empty() # Corrigido para bats
+        self.bats.empty()
         self.enemies.empty()
         self.attacks.empty()
         self.npcs.empty()
         self.water.empty()
-        self.bosses.empty() # Limpa o grupo do boss ao mudar de nível
-        self.fire_areas.empty() # Limpa as áreas de fogo
+        self.bosses.empty()
+        self.fire_areas.empty()
 
         # Verifica se deve carregar a loja ou o próximo nível normal
         if getattr(self, 'loading_store', False):
-            # Jogador está na loja, agora deve avançar para o próximo level normal
+            # Jogador estava na loja, agora avança para o próximo nível normal
             self.loading_store = False
-            self.current_level += 1
+            self.current_level += 1 # INCREMENTA O NÍVEL DEPOIS DA LOJA
             next_map = self.current_level
-            music = MUSIC_LEVELS.get(self.current_level, MUSIC_LEVELS[1])
+            music = MUSIC_LEVELS.get(self.current_level, MUSIC_LEVELS.get(1)) # Pega a música do nível ou a padrão
             create_player = True
         else:
-            # Jogador terminou level normal, agora vai para a loja
+            # Jogador terminou um nível normal, vai para a loja
             self.loading_store = True
             next_map = 'store'
             music = MUSIC_LEVELS.get('store')
             create_player = True
 
-        if self.current_level > self.max_levels: # Verifica se é o último nível antes do boss
+        if self.current_level > self.max_levels:
             print("Todos os níveis normais completados! Preparando para o boss...")
-            self.load_boss_level() # Chama o método para carregar o nível do boss
+            self.load_boss_level()
             return
 
-        print(f"Loading {next_map}")
+        print(f"Loading map for: {next_map}")
 
         # Cria o mapa
         self.createTilemap(create_player=create_player, force_map=next_map)
@@ -251,9 +254,11 @@ class Game:
                 print(f"Erro ao carregar música: {e}")
 
 
+
     def load_boss_level(self):
         # Limpa todos os sprites novamente para o nível do boss
         self.all_sprites.empty()
+        self.arrows.empty()
         self.blocks.empty()
         self.enemies.empty()
         self.bats.empty()
@@ -289,7 +294,7 @@ class Game:
             if force_map == 'store':
                 current_tilemap = store
             elif force_map == 'boss_arena': # Nova condição para o mapa do boss
-                current_tilemap = MAPS[-1] # Pega o último mapa da lista, que é a arena do boss
+                current_tilemap = boss_arena # Pega o último mapa da lista, que é a arena do boss
             elif self.current_level == 1:
                 current_tilemap = tilemap
             elif self.current_level == 2:
@@ -362,11 +367,12 @@ class Game:
     #"""Inicia um novo jogo"""
         pygame.mixer.init()
         self.playing = True
-        self.character_selection_screen()
-        self.current_level = 1  # Sempre começa no nível 1, não no 4
+        self.current_level = 1  # Sempre começa no nível 1
         
         # Limpa todos os sprites
+
         self.all_sprites = pygame.sprite.LayeredUpdates()
+        self.arrows = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
         self.bats = pygame.sprite.LayeredUpdates() # Corrigido para bats
@@ -418,12 +424,15 @@ class Game:
                         if not self.dialog_box.next_dialog():
                             self.dialog_box.close()
                 
+    def archer_attack(self):
+        """Cria e lança uma flecha a partir da posição do jogador."""
+        Arrow(self, self.player.rect.centerx, self.player.rect.centery, self.player.facing)
+
     def perform_attack(self):
         """
-        Performs an attack based on the player's character type.
-        This is where you will add logic for other characters.
+        Executa um ataque com base no tipo de personagem do jogador.
         """
-        # --- SWORDSMAN ATTACK (Player 1) ---
+        # --- ATAQUE ESPADACHIM (Jogador 1) ---
         if self.player.char_type == 'swordsman':
             if self.player.facing == 'up':
                 SwordAttack(self, self.player.rect.x, self.player.rect.y - 35)
@@ -434,18 +443,16 @@ class Game:
             elif self.player.facing == 'left':
                 SwordAttack(self, self.player.rect.x - 30, self.player.rect.y)
         
-        # --- ARCHER ATTACK (Player 2) - FUTURE IMPLEMENTATION ---
+        # --- ATAQUE ARQUEIRO (Jogador 2) ---
         elif self.player.char_type == 'archer':
-            # TODO: Add logic to fire an arrow here.
-            # Example: Arrow(self, self.player.rect.centerx, self.player.rect.centery, self.player.facing)
-            print("Archer attack is not implemented yet.")
+            self.archer_attack()
 
-        # --- TANK ATTACK (Player 3) - FUTURE IMPLEMENTATION ---
+        # --- ATAQUE TANK (Jogador 3) - IMPLEMENTAÇÃO FUTURA ---
         elif self.player.char_type == 'tank':
-            # TODO: Add logic for the tank's attack here.
-            # Example: GroundSlam(self, self.player.rect.center)
-            print("Tank attack is not implemented yet.")
+            print("O ataque do Tank ainda não foi implementado.")
 
+
+    
     def update(self):
 
         shop_active = any(isinstance(npc, Seller2NPC) and npc.shop_active for npc in self.npcs)
