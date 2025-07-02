@@ -1,3 +1,4 @@
+
 import pygame
 import pygame.sprite
 from config import *
@@ -396,7 +397,7 @@ class Ground1(pygame.sprite.Sprite):
             1: game.terrain_spritesheet.get_sprite(0, 352, self.width, self.height),
             2: game.terrain_spritesheet.get_sprite(256, 352, self.width+6, self.height),
             3: game.terrain_spritesheet.get_sprite(925, 703, self.width+6, self.height),
-            4: game.terrain_spritesheet.get_sprite(575, 545, self.width+6, self.height)
+            4: game.terrain_spritesheet.get_sprite(576, 544, self.width+4, self.height)
         }
         
         # Carrega o sprite baseado no nível atual
@@ -1142,7 +1143,7 @@ class Obstacle(pygame.sprite.Sprite):
             1: self.game.obstacle_spritesheet.get_sprite(640, 203, self.width-4, self.height-4),  # Tronco
             2: self.game.obstacle_spritesheet.get_sprite(670, 260, self.width, self.height),
             3: self.game.plant_spritesheet.get_sprite(994, 545, self.width, self.height),
-            4: self.game.plant_spritesheet.get_sprite(703, 556, self.width, self.height)
+            4: self.game.plant_spritesheet.get_sprite(928, 480, self.width, self.height)
         }
         
         self.update_sprite()
