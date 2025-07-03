@@ -17,8 +17,8 @@ BOSS_LAYER = 4 # Nova camada para o boss
 
 
 #PLAYER_LIFE = 20
-ENEMY_LIFE = 1
-BAT_LIFE = 1
+ENEMY_LIFE = 10
+BAT_LIFE = 10
 NERO_LIFE = 25 # Vida do Nero
  # Velocidade do Nero
 
@@ -29,6 +29,8 @@ BAT_SPEED = 5.5
 NERO_SPEED = 2.5
 #DAMAGE
 #PLAYER_DAMAGE = 4
+
+
 NERO_WHIP_DAMAGE = 15 # Dano do chicote
 NERO_FIRE_DAMAGE = 5 # Dano da área de fogo
 NERO_KNIFE_DAMAGE = 25 # Dano do ataque giratório
@@ -79,7 +81,7 @@ PLAYER3_ATTR = {
     "sprite": "sprt/PLAYERS/player3tst.png", # Imagem da tela de seleção
     "animation_sheet": "sprt/img/character.png", # Exemplo de caminho para a spritesheet do P3
     "description": "Grande resistência e força",
-    "type": "tank"
+    "type": "boxer"
 }
 
 
@@ -93,6 +95,7 @@ CHARACTERS = {
 ATTACK_COOLDOWN = 1000  # 1 segundos em milissegundos
 DODGE_COOLDOWN = 3000   # 3 segundos em milissegundos
 ARROW_COOLDOWN = 3500
+BOXING_COOLDOWN = 400   # 0.4 segundos para o soco (mais rápido)
 
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
