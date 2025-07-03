@@ -1561,67 +1561,40 @@ class Boxing(pygame.sprite.Sprite):
 
         self.x = x
         self.y = y
-        self.width = TILESIZES   # Aumenta o tamanho do ataque
+        self.width = TILESIZES
         self.height = TILESIZES
         
         self.animation_loop = 0
-        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)  # Surface transparente
+        
+        # Usaremos um dos sprites de ataque existentes como placeholder
+        self.image = self.game.boxe_spritesheet.get_sprite(13, 14, self.width, self.height)
+
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-        self.direction = self.game.player.facing  # Armazena a direção do jogador
 
     def collide(self):
+        # A lógica de colisão é a mesma, mas o dano será menor 
+        # devido aos atributos do personagem
         hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
         hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
         hits_bosses = pygame.sprite.spritecollide(self, self.game.bosses, False)
 
         for enemy in hits_enemies:
-            enemy.take_damage(self.game.player.damage)  # Passa o dano do jogador
+            enemy.take_damage(self.game.player.damage)
 
-        for bats in hits_bats:
-            bats.take_damage(self.game.player.damage)  # Passa o dano do jogador
-
+        for bat in hits_bats:
+            bat.take_damage(self.game.player.damage)
         
         for boss in hits_bosses:
             boss.take_damage(self.game.player.damage)
 
     def update(self):
-        self.animate()
         self.collide()
-
-    def animate(self):
-        direction = self.direction  # Usa a direção armazenada
-
-        right_animations = [
-            self.game.attack_spritsheet.get_sprite(40, 122, self.width, self.height)
-        ]
-        down_animations = [
-            self.game.attack_spritsheet.get_sprite(114, 130, self.width, self.height)
-        ]
-        left_animations = [
-            self.game.attack_spritsheet.get_sprite(77, 123, self.width, self.height)
-        ]
-        up_animations = [
-            self.game.attack_spritsheet.get_sprite(0, 130, self.width, self.height)
-        ]
-
-        if direction == 'up':
-            self.image = up_animations[0]
-        elif direction == 'down':
-            self.image = down_animations[0]
-        elif direction == 'right':
-            self.image = right_animations[0]
-        elif direction == 'left':
-            self.image = left_animations[0]
-            
-        # Mantém a posição relativa ao jogador
-        
-            
-        # Remove o ataque após um curto período
-        self.animation_loop += 0.5
-        if self.animation_loop >= 2:
-            self.kill()  # Ajuste este valor conforme necessário
+        # Remove o ataque mais rapidamente que a espada
+        self.animation_loop += 1
+        if self.animation_loop >= 2: # Dura metade do tempo da SwordAttack
+            self.kill()
 
 class DialogBox:
     def __init__(self, game):
