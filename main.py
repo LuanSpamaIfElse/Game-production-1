@@ -1,4 +1,3 @@
-
 import pygame
 import sys
 from sprites import *
@@ -6,23 +5,10 @@ from config import *
 
 
 
-
 class Game:
     def __init__(self):
         pygame.mixer.init()
         pygame.init()
-        try:
-            musica = MUSIC_LEVELS.get(1)
-            if musica:
-                pygame.mixer.music.load(musica)
-                pygame.mixer.music.play(-1)
-                pygame.mixer.music.set_volume(0.15)
-                print("Musiquinha da floresta tocando 🎵")
-            else:
-                print("Nao tem musica atribuida pra esse level.")
-        except Exception as e:
-            print(f"Deu ruim na hora de carregar a musica: {e}")
-
         pygame.joystick.init()
         self.joystick = None
         if pygame.joystick.get_count() > 0:
@@ -51,6 +37,7 @@ class Game:
         self.bosses = pygame.sprite.LayeredUpdates() # Novo grupo para o boss
         self.fire_areas = pygame.sprite.LayeredUpdates() # Novo grupo para áreas de fogo
         self.arrows_spritesheet = Spritesheet('sprt/img/arrow_spr.png')
+        self.boxe_spritesheet = Spritesheet('sprt/img/boxing_glove.png')
         #self.Player1_spritesheet = Spritesheet('sprt/img/character.png')
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
         self.obstacle_spritesheet = Spritesheet('sprt/terrain/TreesSpr.png')
@@ -234,6 +221,7 @@ class Game:
             self.loading_store = False
             self.current_level += 1 # INCREMENTA O NÍVEL DEPOIS DA LOJA
             next_map = self.current_level
+            music = MUSIC_LEVELS.get(self.current_level, MUSIC_LEVELS.get(1)) # Pega a música do nível ou a padrão
             create_player = True
         else:
             # Jogador terminou um nível normal, vai para a loja
@@ -256,6 +244,15 @@ class Game:
         if hasattr(self, 'player'):
             self.player.life = player_life
             self.player.coins = player_coins
+
+        # Toca a música
+        if music:
+            try:
+                pygame.mixer.music.load(music)
+                pygame.mixer.music.play(-1)
+                pygame.mixer.music.set_volume(0.15)
+            except Exception as e:
+                print(f"Erro ao carregar música: {e}")
 
 
 
@@ -451,9 +448,16 @@ class Game:
         elif self.player.char_type == 'archer':
             self.archer_attack()
 
-        # --- ATAQUE TANK (Jogador 3) - IMPLEMENTAÇÃO FUTURA ---
-        elif self.player.char_type == 'tank':
-            print("O ataque do Tank ainda não foi implementado.")
+        # --- Boxeador (Jogador 3)---
+        elif self.player.char_type == 'boxer':
+            if self.player.facing == 'up':
+                Boxing(self, self.player.rect.x, self.player.rect.y - TILESIZES)
+            elif self.player.facing == 'down':
+                Boxing(self, self.player.rect.x, self.player.rect.y + TILESIZES)
+            elif self.player.facing == 'right':
+                Boxing(self, self.player.rect.x + TILESIZES, self.player.rect.y)
+            elif self.player.facing == 'left':
+                Boxing(self, self.player.rect.x - TILESIZES, self.player.rect.y)
 
 
     
