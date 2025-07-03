@@ -1231,7 +1231,7 @@ class Nero(pygame.sprite.Sprite):
         # CORRIGIDO: Adiciona sistema de invulnerabilidade
         self.invulnerable = False
         self.invulnerable_time = 0
-        self.invulnerability_duration = 500 # 0.5 segundos
+        self.invulnerability_duration = 250 # 0.25 segundos
 
         # Placeholder da imagem
         self.image = pygame.Surface([self.width, self.height])
@@ -1338,7 +1338,6 @@ class Nero(pygame.sprite.Sprite):
         if distance <= NERO_KNIFE_RANGE + 20: # Aumenta um pouco a área para garantir o acerto
             # CORRIGIDO: Usa o método take_damage do jogador
             self.game.player.take_damage(NERO_KNIFE_DAMAGE)
-            print(f"Player atingido pela faca de Nero! Vida: {self.game.player.life}")
         
         self.attacking = False
 
@@ -1552,6 +1551,77 @@ class Arrow(pygame.sprite.Sprite):
         self.state = 'fallen'
         self.image = self.fallen_sprite
         self.fall_time = pygame.time.get_ticks()
+
+class Boxing(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = PLAYER_LAYER
+        self.groups = self.game.all_sprites, self.game.attacks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x
+        self.y = y
+        self.width = TILESIZES   # Aumenta o tamanho do ataque
+        self.height = TILESIZES
+        
+        self.animation_loop = 0
+        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)  # Surface transparente
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.direction = self.game.player.facing  # Armazena a direção do jogador
+
+    def collide(self):
+        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
+        hits_bosses = pygame.sprite.spritecollide(self, self.game.bosses, False)
+
+        for enemy in hits_enemies:
+            enemy.take_damage(self.game.player.damage)  # Passa o dano do jogador
+
+        for bats in hits_bats:
+            bats.take_damage(self.game.player.damage)  # Passa o dano do jogador
+
+        
+        for boss in hits_bosses:
+            boss.take_damage(self.game.player.damage)
+
+    def update(self):
+        self.animate()
+        self.collide()
+
+    def animate(self):
+        direction = self.direction  # Usa a direção armazenada
+
+        right_animations = [
+            self.game.attack_spritsheet.get_sprite(40, 122, self.width, self.height)
+        ]
+        down_animations = [
+            self.game.attack_spritsheet.get_sprite(114, 130, self.width, self.height)
+        ]
+        left_animations = [
+            self.game.attack_spritsheet.get_sprite(77, 123, self.width, self.height)
+        ]
+        up_animations = [
+            self.game.attack_spritsheet.get_sprite(0, 130, self.width, self.height)
+        ]
+
+        if direction == 'up':
+            self.image = up_animations[0]
+        elif direction == 'down':
+            self.image = down_animations[0]
+        elif direction == 'right':
+            self.image = right_animations[0]
+        elif direction == 'left':
+            self.image = left_animations[0]
+            
+        # Mantém a posição relativa ao jogador
+        
+            
+        # Remove o ataque após um curto período
+        self.animation_loop += 0.5
+        if self.animation_loop >= 2:
+            self.kill()  # Ajuste este valor conforme necessário
 
 class DialogBox:
     def __init__(self, game):
@@ -1943,7 +2013,7 @@ class Seller2NPC(pygame.sprite.Sprite):
             self.selected_option = (self.selected_option + 1) % len(self.upgrade_options)
             self.last_interact_time = current_time
         
-        if keys[pygame.K_SPACE] or (self.game.joystick and self.game.joystick.get_button(0)):
+        if keys[pygame.K_f] or (self.game.joystick and self.game.joystick.get_button(0)):
             selected = self.upgrade_options[self.selected_option]
             selected["effect"](self.game.player)
             self.last_interact_time = current_time
