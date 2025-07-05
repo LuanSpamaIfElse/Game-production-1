@@ -23,16 +23,37 @@ class Player(pygame.sprite.Sprite):
         self.groups = [self.game.all_sprites]  #uma lista
         pygame.sprite.Sprite.__init__(self, self.groups)
 
+        # Pega o tipo de personagem para usar no if/else
         self.char_type = self.game.player_attrs.get('type', 'swordsman')
-        self.max_life = self.game.player_attrs.get('life', 20) # Pega a vida do personagem, com um padrão de 20
+        
+        # Variável para o caminho da spritesheet que será definida no if/else
+        animation_sheet_path = ''
+
+        # --- ESTRUTURA IF/ELSE PARA CADA PERSONAGEM ---
+        if self.char_type == 'swordsman':
+            self.max_life = PLAYER1_ATTR['life']
+            self.damage = PLAYER1_ATTR['damage']
+            self.base_speed = PLAYER1_ATTR['speed']
+            animation_sheet_path = PLAYER1_ATTR['animation_sheet']
+        
+        elif self.char_type == 'archer':
+            self.max_life = PLAYER2_ATTR['life']
+            self.damage = PLAYER2_ATTR['damage']
+            self.base_speed = PLAYER2_ATTR['speed']
+            animation_sheet_path = PLAYER2_ATTR['animation_sheet']
+            
+        elif self.char_type == 'boxer':
+            self.max_life = PLAYER3_ATTR['life']
+            self.damage = PLAYER3_ATTR['damage']
+            self.base_speed = PLAYER3_ATTR['speed']
+            animation_sheet_path = PLAYER3_ATTR['animation_sheet']
+            
+        
+
+        # Atribui a vida com base na vida máxima definida
         self.life = self.max_life
-        self.damage = self.game.player_attrs.get('damage', 4) # Pega o dano, com um padrão de 4
-        self.base_speed = self.game.player_attrs.get('speed', 4) # Pega a velocidade, com um padrão de 4
-        sprite_path = self.game.player_attrs.get('sprite', 'sprt/PLAYERS/single.png') # Pega o caminho do sprite
-        
-        # Pega o caminho da spritesheet de animação correta
-        animation_sheet_path = self.game.player_attrs.get('animation_sheet', 'sprt/img/character.png')
-        
+
+        # O resto do código continua como estava, usando as variáveis definidas acima
         # Carrega a spritesheet correta para o personagem selecionado
         self.character_spritesheet = Spritesheet(animation_sheet_path)
         
@@ -1308,7 +1329,6 @@ class Nero(pygame.sprite.Sprite):
 
 
     def whip_attack(self):
-        print("Nero atacou com chicote!")
         self.attacking = True
         self.last_attack_time = pygame.time.get_ticks()
         
@@ -1323,7 +1343,6 @@ class Nero(pygame.sprite.Sprite):
         self.attacking = False
 
     def knife_attack(self):
-        print("Nero atacou com faca (giratório)!")
         self.attacking = True
         self.last_attack_time = pygame.time.get_ticks()
 
@@ -1376,8 +1395,8 @@ class FireArea(pygame.sprite.Sprite):
 
         self.x = x
         self.y = y
-        self.width = TILESIZES +5 # Tamanho da área de fogo
-        self.height = TILESIZES +5
+        self.width = TILESIZES +32 # Tamanho da área de fogo
+        self.height = TILESIZES +32
 
         self.damage = damage
         self.lifetime = lifetime
@@ -1403,7 +1422,6 @@ class FireArea(pygame.sprite.Sprite):
         now = pygame.time.get_ticks()
         if now - self.last_damage_time > self.damage_interval:
             self.game.player.life -= self.damage
-            print(f"Player took {self.damage} fire damage! Life: {self.game.player.life}")
             self.last_damage_time = now
 
 class SwordAttack(pygame.sprite.Sprite):
@@ -1412,6 +1430,171 @@ class SwordAttack(pygame.sprite.Sprite):
         self._layer = PLAYER_LAYER
         self.groups = self.game.all_sprites, self.game.attacks
         pygame.sprite.Sprite.__init__(self, self.groups)
+        
+        self.x = x
+        self.y = y
+        self.width = TILESIZES
+        self.height = TILESIZES
+        
+        self.animation_loop = 0
+        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.direction = self.game.player.facing
+
+    def collide(self):
+        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
+        hits_bosses = pygame.sprite.spritecollide(self, self.game.bosses, False)
+
+        if self.game.player.char_type == 'swordsman':
+            damage = PLAYER1_ATTR["damage"]
+
+        for enemy in hits_enemies:
+            enemy.take_damage(damage)
+
+        for bats in hits_bats:
+            bats.take_damage(damage)
+
+        for boss in hits_bosses:
+            boss.take_damage(damage)
+
+    def update(self):
+        self.animate()
+        self.collide()
+
+    def animate(self):
+        direction = self.direction
+        
+        # Use the attack spritesheet for sword attacks
+        right_animations = [
+            self.game.attack_spritsheet.get_sprite(40, 122, self.width, self.height)
+        ]
+        down_animations = [
+            self.game.attack_spritsheet.get_sprite(114, 130, self.width, self.height)
+        ]
+        left_animations = [
+            self.game.attack_spritsheet.get_sprite(77, 123, self.width, self.height)
+        ]
+        up_animations = [
+            self.game.attack_spritsheet.get_sprite(0, 130, self.width, self.height)
+        ]
+        
+        if direction == 'up':
+            self.image = up_animations[0]
+        elif direction == 'down':
+            self.image = down_animations[0]
+        elif direction == 'right':
+            self.image = right_animations[0]
+        elif direction == 'left':
+            self.image = left_animations[0]
+            
+        # Remove the attack after a short period
+        self.animation_loop += 0.5
+        if self.animation_loop >= 2:
+            self.kill()
+
+class Arrow(pygame.sprite.Sprite):
+    def __init__(self, game, x, y, direction):
+        self.game = game
+        self._layer = PLAYER_LAYER
+        self.groups = self.game.all_sprites, self.game.arrows
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x
+        self.y = y
+        self.direction = direction
+        self.speed = 7  # Increased speed for better feel
+        self.damage = PLAYER2_ATTR["damage"]
+        self.state = 'flying'  # Initial state
+        
+        # Load arrow sprites
+        self.flying_sprites = {
+            'up': self.game.arrows_spritesheet.get_sprite(13, 25, 10, 16),
+            'down': self.game.arrows_spritesheet.get_sprite(22, 26, 10, 16),
+            'left': self.game.arrows_spritesheet.get_sprite(25, 0, 14, 10),
+            'right': self.game.arrows_spritesheet.get_sprite(5, 0, 14, 9)
+        }
+        self.fallen_sprite = self.game.arrows_spritesheet.get_sprite(33, 26, 10, 16)
+        
+        # Set initial image based on direction
+        self.image = self.flying_sprites[direction]
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect(center=(x, y))
+        
+        # Timing variables
+        self.lifetime = 900  # 1 second lifetime while flying
+        self.fallen_lifetime = 3000  # 3 seconds lifetime after falling
+        self.spawn_time = pygame.time.get_ticks()
+        self.fall_time = 0
+
+    def update(self):
+        if self.state == 'flying':
+            self.move()
+            self.check_collisions()
+            
+            # Check lifetime while flying
+            if pygame.time.get_ticks() - self.spawn_time > self.lifetime:
+                self.fall()
+                
+        elif self.state == 'fallen':
+            # Check lifetime while fallen
+            if pygame.time.get_ticks() - self.fall_time > self.fallen_lifetime:
+                self.kill()
+
+    def move(self):
+        """Move the arrow based on its direction"""
+        if self.direction == 'up':
+            self.rect.y -= self.speed
+        elif self.direction == 'down':
+            self.rect.y += self.speed
+        elif self.direction == 'left':
+            self.rect.x -= self.speed
+        elif self.direction == 'right':
+            self.rect.x += self.speed
+
+    def check_collisions(self):
+        """Check for collisions with blocks and enemies"""
+        # Check collision with blocks
+        if pygame.sprite.spritecollide(self, self.game.blocks, False):
+            self.fall()
+            return
+            
+        # Check collision with enemies
+        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
+        hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
+        hits_bosses = pygame.sprite.spritecollide(self, self.game.bosses, False)
+        
+        # Damage enemies and disappear
+        for enemy in hits_enemies:
+            enemy.take_damage(self.damage)
+            self.kill()
+            
+        for bat in hits_bats:
+            bat.take_damage(self.damage)
+            self.kill()
+            
+        for boss in hits_bosses:
+            boss.take_damage(self.damage)
+            self.kill()
+
+    def fall(self):
+        """Change state to fallen and switch to fallen sprite"""
+        if self.state != 'fallen':  # Only fall if not already fallen
+            self.state = 'fallen'
+            self.image = self.fallen_sprite
+            self.image.set_colorkey(BLACK)
+            self.fall_time = pygame.time.get_ticks()
+            # Stop movement
+            self.speed = 0
+class Boxing(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self._layer = PLAYER_LAYER
+        self.groups = self.game.all_sprites, self.game.attacks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        self.spritesheet = game.boxer_spritesheet
 
         self.x = x
         self.y = y
@@ -1430,36 +1613,38 @@ class SwordAttack(pygame.sprite.Sprite):
         hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
         hits_bosses = pygame.sprite.spritecollide(self, self.game.bosses, False)
 
+        if self.game.player.char_type == 'boxer':
+            damage = PLAYER3_ATTR["damage"]  # Dano alto para o boxeador
+
         for enemy in hits_enemies:
-            enemy.take_damage(self.game.player.damage)  # Passa o dano do jogador
+            enemy.take_damage(damage)
 
         for bats in hits_bats:
-            bats.take_damage(self.game.player.damage)  # Passa o dano do jogador
+            bats.take_damage(damage)
 
-        
         for boss in hits_bosses:
-            boss.take_damage(self.game.player.damage)
+            boss.take_damage(damage)
 
     def update(self):
         self.animate()
         self.collide()
 
     def animate(self):
-        direction = self.direction  # Usa a direção armazenada
-
+        direction = self.direction
+        
+        # Use self.spritesheet em vez de player3spr
         right_animations = [
-            self.game.attack_spritsheet.get_sprite(40, 122, self.width, self.height)
+            self.game.boxe_spritesheet.get_sprite(70, 14, self.width, self.height)
         ]
         down_animations = [
-            self.game.attack_spritsheet.get_sprite(114, 130, self.width, self.height)
+            self.game.boxe_spritesheet.get_sprite(12, 71, self.width, self.height)
         ]
         left_animations = [
-            self.game.attack_spritsheet.get_sprite(77, 123, self.width, self.height)
+            self.game.boxe_spritesheet.get_sprite(12, 14, self.width, self.height)
         ]
         up_animations = [
-            self.game.attack_spritsheet.get_sprite(0, 130, self.width, self.height)
+            self.game.boxe_spritesheet.get_sprite(12, 14, self.width, self.height)
         ]
-
         if direction == 'up':
             self.image = up_animations[0]
         elif direction == 'down':
@@ -1473,128 +1658,9 @@ class SwordAttack(pygame.sprite.Sprite):
         
             
         # Remove o ataque após um curto período
-        self.animation_loop += 0.5
-        if self.animation_loop >= 2:
+        self.animation_loop += 0.25
+        if self.animation_loop >= 1:
             self.kill()  # Ajuste este valor conforme necessário
-
-class Arrow(pygame.sprite.Sprite):
-    """
-    Representa uma flecha disparada pelo jogador arqueiro.
-    """
-    def __init__(self, game, x, y, direction):
-        self.game = game
-        self._layer = PLAYER_LAYER  # Camada da flecha para que apareça corretamente
-        self.groups = self.game.all_sprites, self.game.arrows
-        pygame.sprite.Sprite.__init__(self, self.groups)
-
-        self.x = x
-        self.y = y
-        self.direction = direction
-        self.speed = 10  # Velocidade da flecha
-        self.max_distance = 256  # Distância máxima que a flecha percorre
-        self.traveled_distance = 0
-        self.state = 'flying'  # Estado inicial: 'flying' ou 'fallen'
-        self.fallen_lifetime = 3000  # Tempo que a flecha fica no chão (3 segundos)
-
-        # Carrega os sprites da flecha.
-        # NOTA: As coordenadas (x, y, width, height) podem precisar de ajuste
-        # dependendo do seu arquivo 'arrow_spr.png'.
-        self.flying_sprites = {
-            'up': self.game.arrows_spritesheet.get_sprite(13, 25, 10, 16),
-            'down': self.game.arrows_spritesheet.get_sprite(22, 26, 10, 16),
-            'left': self.game.arrows_spritesheet.get_sprite(25, 0, 14, 10),
-            'right': self.game.arrows_spritesheet.get_sprite(5, 0, 14, 9)
-        }
-        self.fallen_sprite = self.game.arrows_spritesheet.get_sprite(33, 26, 10,16)
-
-        self.image = self.flying_sprites.get(self.direction)
-        self.rect = self.image.get_rect(center=(x, y))
-
-    def update(self):
-        """Atualiza a posição e o estado da flecha."""
-        if self.state == 'flying':
-            self.move()
-            self.traveled_distance += self.speed
-            if self.traveled_distance >= self.max_distance:
-                self.fall()
-            else:
-                self.check_collisions()
-        elif self.state == 'fallen':
-            if pygame.time.get_ticks() - self.fall_time > self.fallen_lifetime:
-                self.kill()
-
-    def move(self):
-        """Move a flecha na direção correta."""
-        if self.direction == 'up':
-            self.rect.y -= self.speed
-        elif self.direction == 'down':
-            self.rect.y += self.speed
-        elif self.direction == 'left':
-            self.rect.x -= self.speed
-        elif self.direction == 'right':
-            self.rect.x += self.speed
-
-    def check_collisions(self):
-        """Verifica colisões com paredes e inimigos."""
-        if pygame.sprite.spritecollide(self, self.game.blocks, False):
-            self.fall()
-            return
-
-        all_enemies = self.game.enemies.sprites() + self.game.bats.sprites() + self.game.bosses.sprites()
-        for enemy in pygame.sprite.spritecollide(self, all_enemies, False):
-            enemy.take_damage(self.game.player.damage)
-            self.kill()
-            return
-
-    def fall(self):
-        """Muda o estado da flecha para 'caída'."""
-        self.state = 'fallen'
-        self.image = self.fallen_sprite
-        self.fall_time = pygame.time.get_ticks()
-
-class Boxing(pygame.sprite.Sprite):
-    def __init__(self, game, x, y):
-        self.game = game
-        self._layer = PLAYER_LAYER
-        self.groups = self.game.all_sprites, self.game.attacks
-        pygame.sprite.Sprite.__init__(self, self.groups)
-
-        self.x = x
-        self.y = y
-        self.width = TILESIZES
-        self.height = TILESIZES
-        
-        self.animation_loop = 0
-        
-        # Usaremos um dos sprites de ataque existentes como placeholder
-        self.image = self.game.boxe_spritesheet.get_sprite(13, 14, self.width, self.height)
-
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-
-    def collide(self):
-        # A lógica de colisão é a mesma, mas o dano será menor 
-        # devido aos atributos do personagem
-        hits_enemies = pygame.sprite.spritecollide(self, self.game.enemies, False)
-        hits_bats = pygame.sprite.spritecollide(self, self.game.bats, False)
-        hits_bosses = pygame.sprite.spritecollide(self, self.game.bosses, False)
-
-        for enemy in hits_enemies:
-            enemy.take_damage(self.game.player.damage)
-
-        for bat in hits_bats:
-            bat.take_damage(self.game.player.damage)
-        
-        for boss in hits_bosses:
-            boss.take_damage(self.game.player.damage)
-
-    def update(self):
-        self.collide()
-        # Remove o ataque mais rapidamente que a espada
-        self.animation_loop += 1
-        if self.animation_loop >= 2: # Dura metade do tempo da SwordAttack
-            self.kill()
 
 class DialogBox:
     def __init__(self, game):
