@@ -17,23 +17,23 @@ BOSS_LAYER = 4 # Nova camada para o boss
 
 
 #PLAYER_LIFE = 20
-ENEMY_LIFE = 10
-BAT_LIFE = 10
-NERO_LIFE = 25 # Vida do Nero
+ENEMY_LIFE = 30
+BAT_LIFE = 20
+NERO_LIFE = 250 # Vida do Nero
  # Velocidade do Nero
 
 
 #self.base_speed = 4
-ENEMY_SPEED = 1.0
+ENEMY_SPEED = 1.5
 BAT_SPEED = 5.5
-NERO_SPEED = 2.5
+NERO_SPEED = 7
 #DAMAGE
 #PLAYER_DAMAGE = 4
 
 
-NERO_WHIP_DAMAGE = 15 # Dano do chicote
-NERO_FIRE_DAMAGE = 5 # Dano da área de fogo
-NERO_KNIFE_DAMAGE = 25 # Dano do ataque giratório
+NERO_WHIP_DAMAGE = 25 # Dano do chicote
+NERO_FIRE_DAMAGE = 8 # Dano da área de fogo
+NERO_KNIFE_DAMAGE = 15 # Dano do ataque giratório
 
 NERO_WHIP_RANGE = 250 # Distância para o ataque de chicote
 NERO_KNIFE_RANGE = 70 # Distância para o ataque de faca
@@ -54,10 +54,11 @@ CHAR_ARROW_SIZE = 50
 PLAYER1_ATTR = {
     "name": "Bebê Reborn",
     "life": 18,
-    "damage": 5,
+    "damage": 4,
     "speed": 5,
-    "sprite": "sprt/PLAYERS/single.png", # Imagem da tela de seleção
-    "animation_sheet": "sprt/img/character.png", # Spritesheet para as animações
+    "sprite": "sprt/PLAYERS/single.png",
+    # MANTENHA OU ALTERE PARA A SPRITESHEET CORRETA DO ESPADACHIM
+    "animation_sheet": "sprt/img/character.png",
     "description": "Ataques rápidos e precisos usando uma lâmina",
     "type": "swordsman"
 }
@@ -67,8 +68,9 @@ PLAYER2_ATTR = {
     "life": 18,
     "damage": 3,
     "speed": 5,
-    "sprite": "sprt/PLAYERS/player2tst.png", # Imagem da tela de seleção
-    "animation_sheet": "sprt/img/character.png", # Exemplo de caminho para a spritesheet do P2
+    "sprite": "sprt/PLAYERS/player2tst.png",
+    # ALTERADO para a spritesheet do arqueiro
+    "animation_sheet": "sprt/img/character.png", 
     "description": "Dispara flechas com uma mira precisa",
     "type": "archer"
 }
@@ -76,10 +78,11 @@ PLAYER2_ATTR = {
 PLAYER3_ATTR = {
     "name": "Blyat",
     "life": 25,
-    "damage": 10,
+    "damage": 7,
     "speed": 3,
-    "sprite": "sprt/PLAYERS/player3tst.png", # Imagem da tela de seleção
-    "animation_sheet": "sprt/img/character.png", # Exemplo de caminho para a spritesheet do P3
+    "sprite": "sprt/PLAYERS/player3tst.png",
+    # ALTERADO para a spritesheet do boxeador
+    "animation_sheet": "sprt/PLAYERS/character (3).png",
     "description": "Grande resistência e força",
     "type": "boxer"
 }
@@ -90,7 +93,7 @@ CHARACTERS = {
     2: PLAYER2_ATTR,
     3: PLAYER3_ATTR
 }
-
+player3spr = "sprt/PLAYERS/player3tst.png"
 # Cooldowns das habilidades
 ATTACK_COOLDOWN = 1000  # 1 segundos em milissegundos
 DODGE_COOLDOWN = 3000   # 3 segundos em milissegundos
@@ -182,14 +185,14 @@ MUSIC_LEVELS = {
 tilemap = [
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
     'B......O........................M................B',
-    'B.P.....O........................................B',
+    'B.P.....O.................N......................B',
     'B....S...O.......................................B',
     'BOQQOOOOO........................................B',
     'B..Q....C........................................B',
     'B................................................B',
     'BQ.........................Q.....................B',
     'B.QQ...............Q.............................B',
-    'BQ..............E................................B',
+    'BQ..............C................................B',
     'B................................................B',
     'B................................................B',
     'B....Q...........................................B',
@@ -206,7 +209,7 @@ tilemap = [
     'B................................................B',
     'BQ............................Q..................B',
     'BTQ..............................................B',
-    'B.Q...........................E....Q...C.........B',
+    'B.Q...........................C....Q...C.........B',
     'B..................................Q.............B',
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 ]
@@ -216,21 +219,21 @@ tilemap2 = [
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
     'BT.....WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..WWWWWQ...B',
     'B......WWWW..WWWWWWWWWWWWWWWWWWWWWWWW....C..QQ...B',
-    'B.C....WQWWWWWWWWW.............WWWWWWW...E..WWQ..B',
+    'B.C....WQWWWWWWWWW.............WWWWWWW...C..WWQ..B',
     'B....WWWQWWWWW..................WWQQWW......WW...B',
     'B......WQQWW.............C.......QQQ....W..WW....B',
     'B......WWWWWW....................QWW.........W...B',
-    'B.....QWQQWWW..........E.........WWWWWW.....WWWQ.B',
+    'B.....QWQQWWW..........C.........WWWWWW.....WWWQ.B',
     'B.....WWWWWWWWWWWWWW...........WWWWWWW...WWWWW...B',
     'B......WWWWWQQWWWWW..........WWWWWWWWWWWWQQWW....B',
-    'B......WWWWWW....WW......E.......WWWWWWW.WWWWW...B',
+    'B......WWWWWW....WW......C.......WWWWWWW.WWWWW...B',
     'B......WWWWWWWWWWWWW...........WWWWWWWQWWWWWW....B',
     'B......WQWWWWWQWWWWWWWWWWWW..QWWWWWWWWWWWWW..W...B',
     'B.....WWWWWWWWWWWWWWWQQWWWWQQ.WWWWWWW......WWWW..B',
     'B......WWWQQWWWW..WWWWWWWW..Q..........WWQWWWW...B',
     'B.......WWWWWWWWWWWWWWWWWWWWWWW..........WWWWW...B',
     'B......WWWWWWW.......WWWWWW.WWWWWWW......WW.WWQ..B',
-    'B......QQ...........WQQWW...W.QQQ...E....WW.WQ...B',
+    'B......QQ...........WQQWW...W.QQQ...C....WW.WQ...B',
     'B........QQW..........QQ.....Q..........WWWQWWQ..B',
     'B......QWWWWWWWWWWWWWWWQQWWWWQ.....WWWWWWWWWWWW.PB',
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
@@ -277,11 +280,11 @@ tilemap4 = [
     'B................................................B',
     'BQ.........................Q.....................B',
     'B.QQ...............Q.............................B',
-    'BQ..............E................................B',
+    'BQ..............C................................B',
     'B................................................B',
     'B................................................B',
     'B....Q...........................................B',
-    'B..................................E.............B',
+    'B..................................C.............B',
     'B...........................Q....................B',
     'B......................Q.Q.......................B',
     'B...................Q............................B',
@@ -294,7 +297,7 @@ tilemap4 = [
     'B................................................B',
     'BQ............................Q..................B',
     'BTQ..............................................B',
-    'B.Q...........................E....Q...C.........B',
+    'B.Q...........................C....Q...C.........B',
     'B..................................Q.............B',
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 ]
@@ -309,10 +312,10 @@ boss_arena = [
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
     'B.QQQP.Q......O.........................B',
     'B...QQ.QQ.........................N.....B',
-    'B..........E...C........................B',
+    'B..........C...C........................B',
     'B.......................................B',
-    'B.....E.........QQQ.....Q...............B',
-    'B..........E............................B',
+    'B.....C.........QQQ.....Q...............B',
+    'B..........C............................B',
     'B...QQ.........C........................B',
     'B.............................QQ........B',
     'B.......................................B',
