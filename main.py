@@ -37,6 +37,7 @@ class Game:
         self.bosses = pygame.sprite.LayeredUpdates() # Novo grupo para o boss
         self.fire_areas = pygame.sprite.LayeredUpdates() # Novo grupo para áreas de fogo
         self.arrows_spritesheet = Spritesheet('sprt/img/arrow_spr.png')
+        self.boxer_spritesheet = Spritesheet(PLAYER3_ATTR["animation_sheet"])
         self.boxe_spritesheet = Spritesheet('sprt/img/boxing_glove.png')
         #self.Player1_spritesheet = Spritesheet('sprt/img/character.png')
         self.terrain_spritesheet = Spritesheet('sprt/terrain/terrain.png')
@@ -380,7 +381,7 @@ class Game:
         self.attacks = pygame.sprite.LayeredUpdates()
         self.npcs = pygame.sprite.LayeredUpdates()
         self.bosses = pygame.sprite.LayeredUpdates() # Reinicia o grupo do boss
-        self.fire_areas = pygame.sprite.LayeredUpdates() # Reinicia o grupo de áreas de fogo
+        self.s_areas = pygame.sprite.LayeredUpdates() # Reinicia o grupo de áreas de fogo
         
         # Cria o tilemap inicial (cria jogador automaticamente)
         self.createTilemap(create_player=True)
@@ -427,7 +428,8 @@ class Game:
                 
     def archer_attack(self):
         """Cria e lança uma flecha a partir da posição do jogador."""
-        Arrow(self, self.player.rect.centerx, self.player.rect.centery, self.player.facing)
+        if hasattr(self, 'player'):
+            Arrow(self, self.player.rect.centerx, self.player.rect.centery, self.player.facing)
 
     def perform_attack(self):
         """
