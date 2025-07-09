@@ -19,14 +19,14 @@ BOSS_LAYER = 4 # Nova camada para o boss
 #PLAYER_LIFE = 20
 ENEMY_LIFE = 30
 BAT_LIFE = 20
-NERO_LIFE = 250 # Vida do Nero
+NERO_LIFE = 120 # Vida do Nero
  # Velocidade do Nero
 
 
 #self.base_speed = 4
 ENEMY_SPEED = 1.5
 BAT_SPEED = 5.5
-NERO_SPEED = 7
+NERO_SPEED = 6
 #DAMAGE
 #PLAYER_DAMAGE = 4
 
