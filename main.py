@@ -189,16 +189,7 @@ class Game:
             self.screen.blit(play_button.image, play_button.rect)
             self.clock.tick(FPS)
             pygame.display.update()
-    def start_game(self):
-        """Inicia o jogo com o personagem selecionado"""
-        try:
-            pygame.mixer.music.load(MUSIC_LEVELS[1])
-            pygame.mixer.music.play(-1)
-            pygame.mixer.music.set_volume(0.15)
-        except Exception as e:
-            print(f"Erro ao carregar música: {e}")
-        
-        self.new()
+    
         #
     def next_level(self):
         player_life = self.player.life if hasattr(self, 'player') else 20 # Usando o padrão de vida
@@ -368,6 +359,12 @@ class Game:
     def new(self):
     #"""Inicia um novo jogo"""
         pygame.mixer.init()
+        try:
+            pygame.mixer.music.load(MUSIC_LEVELS[1])
+            pygame.mixer.music.play(-1)
+            pygame.mixer.music.set_volume(0.15)
+        except Exception as e:
+            print(f"Erro ao carregar música: {e}")
         self.playing = True
         self.current_level = 1  # Sempre começa no nível 1
         
