@@ -24,8 +24,8 @@ NERO_LIFE = 120 # Vida do Nero
 
 
 #self.base_speed = 4
-ENEMY_SPEED = 1.5
-BAT_SPEED = 5.5
+ENEMY_SPEED = 1
+BAT_SPEED = 6
 NERO_SPEED = 6
 #DAMAGE
 #PLAYER_DAMAGE = 4
@@ -39,7 +39,7 @@ NERO_WHIP_RANGE = 250 # Distância para o ataque de chicote
 NERO_KNIFE_RANGE = 70 # Distância para o ataque de faca
 
 FIRE_AREA_LIFETIME = 1500 # Tempo de duração da área de fogo em ms
-FIRE_DAMAGE_INTERVAL = 1000 # Intervalo de dano da área de fogo em ms
+FIRE_DAMAGE_INTERVAL = 900 # Intervalo de dano da área de fogo em ms
 
 # Adicione no config.py
 # Configurações da tela de seleção
@@ -52,11 +52,11 @@ CHAR_ARROW_SIZE = 50
 # Atributos dos personagens
 
 PLAYER1_ATTR = {
-    "name": "Bebê Reborn",
+    "name": "Jack",
     "life": 18,
     "damage": 4,
     "speed": 5,
-    "sprite": "sprt/PLAYERS/single.png",
+    "sprite": "sprt/PLAYERS/player1tst.png",
     # MANTENHA OU ALTERE PARA A SPRITESHEET CORRETA DO ESPADACHIM
     "animation_sheet": "sprt/img/character.png",
     "description": "Ataques rápidos e precisos usando uma lâmina",
@@ -64,9 +64,9 @@ PLAYER1_ATTR = {
 }
 
 PLAYER2_ATTR = {
-    "name": "Müller",
+    "name": "Emma",
     "life": 18,
-    "damage": 3,
+    "damage": 7,
     "speed": 5,
     "sprite": "sprt/PLAYERS/player2tst.png",
     # ALTERADO para a spritesheet do arqueiro
@@ -76,9 +76,9 @@ PLAYER2_ATTR = {
 }
 
 PLAYER3_ATTR = {
-    "name": "Blyat",
+    "name": "Harald",
     "life": 25,
-    "damage": 7,
+    "damage": 9,
     "speed": 3,
     "sprite": "sprt/PLAYERS/player3tst.png",
     # ALTERADO para a spritesheet do boxeador
@@ -98,7 +98,9 @@ player3spr = "sprt/PLAYERS/player3tst.png"
 ATTACK_COOLDOWN = 1000  # 1 segundos em milissegundos
 DODGE_COOLDOWN = 3000   # 3 segundos em milissegundos
 ARROW_COOLDOWN = 3500
-BOXING_COOLDOWN = 400   # 0.4 segundos para o soco (mais rápido)
+BOXING_COOLDOWN = 400
+SHIELD_DURATION = 5000  # 5 segundos em milissegundos
+SHIELD_COOLDOWN = 30000     
 
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
@@ -185,7 +187,7 @@ MUSIC_LEVELS = {
 tilemap = [
     'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
     'B......O........................M................B',
-    'B.P.....O.................N......................B',
+    'B.P.....O........................................B',
     'B....S...O.......................................B',
     'BOQQOOOOO........................................B',
     'B..Q....C........................................B',
@@ -198,7 +200,7 @@ tilemap = [
     'B....Q...........................................B',
     'B................................................B',
     'B...........................Q....................B',
-    'B......................Q.Q.......................B',
+    'B.......E..............Q.Q.......................B',
     'B...................Q............................B',
     'B................................................B',
     'B............................Q...................B',
