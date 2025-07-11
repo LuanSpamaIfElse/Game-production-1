@@ -1,4 +1,3 @@
-
 import pygame
 import pygame.sprite
 from config import *
@@ -80,6 +79,12 @@ class Player(pygame.sprite.Sprite):
         self.dodge_duration = 500
         self.dodge_speed_multiplier = 10
         
+        # Sistema de escudo para o boxeador
+        self.shield_active = False
+        self.shield_start_time = 0
+        self.last_shield_time = -SHIELD_COOLDOWN  # Permite usar imediatamente
+        self.shield_image = self.game.shield_spritesheet.get_sprite(0, 0, 40, 40)
+
         # Dodge Bar (esquiva)
         self.dodge_cooldown = DODGE_COOLDOWN
         self.last_dodge_time = -DODGE_COOLDOWN  
@@ -131,12 +136,26 @@ class Player(pygame.sprite.Sprite):
             pygame.draw.rect(surface, health_color, health_rect)
 
     def take_damage(self, amount=1):
-        if not self.invulnerable:
-            self.life -= 1
+        if not self.invulnerable and not self.shield_active:
+            self.life -= amount
             self.invulnerable = True
             self.invulnerable_time = pygame.time.get_ticks()
             if self.life <= 0:
                 self.kill()
+
+    def activate_shield(self):
+        current_time = pygame.time.get_ticks()
+        if self.char_type == 'boxer' and current_time - self.last_shield_time >= SHIELD_COOLDOWN:
+            self.shield_active = True
+            self.shield_start_time = current_time
+            self.last_shield_time = current_time
+            return True
+        return False
+
+    def update_shield(self):
+        current_time = pygame.time.get_ticks()
+        if self.shield_active and current_time - self.shield_start_time >= SHIELD_DURATION:
+            self.shield_active = False
 
     def can_attack(self):
         current_time = pygame.time.get_ticks()
@@ -222,6 +241,7 @@ class Player(pygame.sprite.Sprite):
                 self.last_water_damage_time = current_time
 
     def update(self):
+        self.update_shield()
         self.movement()
         self.animate()
         self.handle_water()
@@ -273,7 +293,7 @@ class Player(pygame.sprite.Sprite):
         
         current_speed = (self.base_speed + self.speed_boost) * (self.slow_modifier if self.is_in_water else 1)
 
-        # Teclado (código de movimento continua o mesmo)
+        # Teclado
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             self.x_change -= current_speed
             self.facing = 'left'
@@ -287,7 +307,7 @@ class Player(pygame.sprite.Sprite):
             self.y_change += current_speed
             self.facing = 'down'
         
-        # Joystick (código de movimento continua o mesmo)
+        # Joystick
         if hasattr(self.game, 'joystick') and self.game.joystick:
             axis_x = self.game.joystick.get_axis(0)
             axis_y = self.game.joystick.get_axis(1)
@@ -299,16 +319,24 @@ class Player(pygame.sprite.Sprite):
                 self.y_change += axis_y * current_speed
                 self.facing = 'down' if axis_y > 0 else 'up'
         
-        # Esquiva (código de movimento continua o mesmo)
-        if self.char_type == 'swordsman':
-            if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) and self.can_dodge():
+        # Esquiva (para espadachim) ou Escudo (para boxeador)
+        if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]):
+            if self.char_type == 'swordsman' and self.can_dodge():
                 self.last_dodge_time = pygame.time.get_ticks()
                 self.x_change *= self.dodge_speed_multiplier
                 self.y_change *= self.dodge_speed_multiplier
-            if hasattr(self.game, 'joystick') and self.game.joystick and self.game.joystick.get_button(2) and self.can_dodge():
-                self.last_dodge_time = pygame.time.get_ticks()
-                self.x_change *= self.dodge_speed_multiplier
-                self.y_change *= self.dodge_speed_multiplier
+            elif self.char_type == 'boxer':
+                self.activate_shield()
+                
+        if hasattr(self.game, 'joystick') and self.game.joystick:
+            if self.game.joystick.get_button(2):  # Botão X (Xbox) ou Quadrado (PS)
+                if self.char_type == 'swordsman' and self.can_dodge():
+                    self.last_dodge_time = pygame.time.get_ticks()
+                    self.x_change *= self.dodge_speed_multiplier
+                    self.y_change *= self.dodge_speed_multiplier
+                elif self.char_type == 'boxer':
+                    self.activate_shield()
+
 
     def kill(self):
         super().kill()
@@ -374,29 +402,20 @@ class Player(pygame.sprite.Sprite):
 
         
     def draw(self, surface):
+    # Desenha o jogador
+        surface.blit(self.image, self.rect)
+        
+        # Desenha o escudo se estiver ativo  <--- AQUI ESTÁ A MODIFICAÇÃO 3
+        if self.shield_active:
+            shield_rect = self.shield_image.get_rect(center=self.rect.center)
+            surface.blit(self.shield_image, shield_rect)
+            
+        # Desenha o efeito de água se estiver na água
         if self.is_in_water:
-        # Desenha um círculo azul semitransparente sob o Player
             water_radius = self.rect.width // 2
             water_surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
             pygame.draw.circle(water_surface, (0, 100, 255, 128), (water_radius, water_radius), water_radius)
             surface.blit(water_surface, self.rect.topleft)
-        # Fundo da barra
-        pygame.draw.rect(surface, DODGE_BAR_BG_COLOR, 
-                        (self.x, self.y, self.width, self.height))
-        
-        if hasattr(self.game, 'player'):
-            ratio = self.game.player.get_dodge_cooldown_ratio()
-            fill_width = int(self.width * ratio)
-            
-            # Barra de preenchimento
-            color = DODGE_BAR_COLOR if ratio == 1 else DODGE_COOLDOWN_COLOR
-            pygame.draw.rect(surface, color, 
-                           (self.x, self.y, fill_width, self.height))
-            
-            # Texto
-            font = pygame.font.SysFont('Arial', 12)
-            text = font.render("Dodge", True, WHITE)
-            surface.blit(text, (self.x + 5, self.y - 15))
 
 #GROUNDS
             
@@ -848,29 +867,65 @@ class enemy(pygame.sprite.Sprite):
             self.game.check_enemies_and_spawn_portal()
 
     def movement(self):
-        if self.facing == 'left':
-            self.x_change = -ENEMY_SPEED
-            self.movement_loop -= 1
-            if self.movement_loop <= -self.max_travel:
-                self.facing = random.choice(['up', 'down', 'right'])
+        # Verifica se o jogador existe para evitar erros
+        if not hasattr(self.game, 'player'):
+            return
 
-        if self.facing == 'up':
-            self.y_change = -ENEMY_SPEED
-            self.movement_loop -= 1
-            if self.movement_loop <= -self.max_travel:
-                self.facing = random.choice(['right', 'left', 'down'])
-                 
-        if self.facing == 'down':
-            self.y_change = ENEMY_SPEED
-            self.movement_loop += 1
-            if self.movement_loop >= self.max_travel:
-                self.facing = random.choice(['up', 'left', 'right'])
+        player_pos = self.game.player.rect.center
+        enemy_pos = self.rect.center
+        distance = math.hypot(player_pos[0] - enemy_pos[0], player_pos[1] - enemy_pos[1])
+        
+        detection_radius = 256  # Raio de detecção de 256px
 
-        if self.facing == 'right':
-            self.x_change = ENEMY_SPEED 
-            self.movement_loop += 1
-            if self.movement_loop >= self.max_travel:
-                self.facing = random.choice(['up', 'down', 'left'])
+        if distance < detection_radius:
+            # O jogador está no alcance, move-se em direção a ele
+            dx = player_pos[0] - enemy_pos[0]
+            dy = player_pos[1] - enemy_pos[1]
+            
+            # Normaliza o vetor de direção
+            norm = math.sqrt(dx**2 + dy**2)
+            if norm != 0:
+                # Define a mudança de posição com base na velocidade do inimigo
+                self.x_change = (dx / norm) * self.speed
+                self.y_change = (dy / norm) * self.speed
+            
+            # Atualiza a direção do sprite para a animação correta
+            if abs(dx) > abs(dy):
+                self.facing = 'right' if dx > 0 else 'left'
+            else:
+                self.facing = 'down' if dy > 0 else 'up'
+        else:
+            # O jogador está fora do alcance, usa o movimento aleatório original
+            self.x_change = 0
+            self.y_change = 0
+            
+            if self.facing == 'left':
+                self.x_change = -self.speed
+                self.movement_loop -= 1
+                if self.movement_loop <= -self.max_travel:
+                    self.movement_loop = 0
+                    self.facing = random.choice(['up', 'down', 'right'])
+
+            elif self.facing == 'right':
+                self.x_change = self.speed
+                self.movement_loop += 1
+                if self.movement_loop >= self.max_travel:
+                    self.movement_loop = 0
+                    self.facing = random.choice(['up', 'down', 'left'])
+
+            elif self.facing == 'up':
+                self.y_change = -self.speed
+                self.movement_loop -= 1
+                if self.movement_loop <= -self.max_travel:
+                    self.movement_loop = 0
+                    self.facing = random.choice(['right', 'left', 'down'])
+                     
+            elif self.facing == 'down':
+                self.y_change = self.speed
+                self.movement_loop += 1
+                if self.movement_loop >= self.max_travel:
+                    self.movement_loop = 0
+                    self.facing = random.choice(['up', 'left', 'right'])
 
     def animate(self):
         # Alterna entre os frames de animação
@@ -1111,15 +1166,36 @@ class AbilityPanel:
 
         # Esquiva
         y_offset += 60
-        dodge_key = self.text_font.render("Esquiva [SHIFT]", True, UI_FONT_COLOR)
-        surface.blit(dodge_key, (self.rect.x + 15, self.rect.y + y_offset))
-        self.draw_dodge_bar(surface, self.rect.x + 15, self.rect.y + y_offset + 25)
+        if self.game.player.char_type == 'boxer':
+            ability_key = self.text_font.render("Escudo [SHIFT]", True, UI_FONT_COLOR)
+            surface.blit(ability_key, (self.rect.x + 15, self.rect.y + y_offset))
+            self.draw_shield_bar(surface, self.rect.x + 15, self.rect.y + y_offset + 25)
+        else:
+            ability_key = self.text_font.render("Esquiva [SHIFT]", True, UI_FONT_COLOR)
+            surface.blit(ability_key, (self.rect.x + 15, self.rect.y + y_offset))
+            self.draw_dodge_bar(surface, self.rect.x + 15, self.rect.y + y_offset + 25)
+
 
         # Moedas
         y_offset += 45
         surface.blit(self.coin_icon, (self.rect.x + 15, self.rect.y + y_offset + 2))
         coin_text = self.text_font.render(f": {self.game.player.coins}", True, UI_TITLE_COLOR)
         surface.blit(coin_text, (self.rect.x + 35, self.rect.y + y_offset))
+
+    def draw_shield_bar(self, surface, x, y):
+        if not hasattr(self.game.player, 'shield_active'):
+            ratio = 0
+        else:
+            elapsed = pygame.time.get_ticks() - self.game.player.last_shield_time
+            ratio = min(elapsed / SHIELD_COOLDOWN, 1.0)
+        
+        self.draw_bar(surface, x, y, ratio, DODGE_READY_COLOR, DODGE_COOLDOWN_COLOR)
+        
+        # Mostra tempo restante do escudo se estiver ativo
+        if hasattr(self.game.player, 'shield_active') and self.game.player.shield_active:
+            remaining = (SHIELD_DURATION - (pygame.time.get_ticks() - self.game.player.shield_start_time)) / 1000
+            time_text = self.text_font.render(f"{remaining:.1f}s", True, WHITE)
+            surface.blit(time_text, (x + BAR_WIDTH + 10, y))
 
     def draw_bar(self, surface, x, y, ratio, ready_color, cooldown_color):
         fill_width = int(BAR_WIDTH * ratio)
@@ -1245,7 +1321,9 @@ class Nero(pygame.sprite.Sprite):
         self.y_change = 0
 
         self.direction = 1  # 1 para baixo, -1 para cima
-        
+
+        self.has_spawned_minions = False
+
         self.attack_cooldown = 2000
         self.last_attack_time = pygame.time.get_ticks()
         
@@ -1273,7 +1351,7 @@ class Nero(pygame.sprite.Sprite):
 
         self.movement()
         self.check_player_distance_and_attack()
-        
+        self.check_for_minion_spawn()
         # Aplica movimento e checa colisão
         self.rect.y += self.y_change
         self.collide_blocks('y') # CORRIGIDO: Checa colisão com paredes
@@ -1284,7 +1362,22 @@ class Nero(pygame.sprite.Sprite):
 
         if self.life <= 0:
             self.kill()
+    def check_for_minion_spawn(self):
+        # Verifica se a vida está abaixo de 30% e se os inimigos ainda não foram invocados
+        if (self.life / self.max_life) <= 0.5 and not self.has_spawned_minions:
+            self.has_spawned_minions = True  # Garante que a invocação ocorra apenas uma vez
+            
+            for _ in range(5):
+                # Calcula uma posição aleatória próxima ao Nero
+                offset_x = random.randint(-TILESIZES * 3, TILESIZES * 3)
+                offset_y = random.randint(-TILESIZES * 3, TILESIZES * 3)
+                
+                # Converte a posição de pixels para tiles, que é o formato esperado pelo construtor do inimigo
+                spawn_x_tile = (self.rect.centerx + offset_x) // TILESIZES
+                spawn_y_tile = (self.rect.centery + offset_y) // TILESIZES
 
+                # Cria uma nova instância do inimigo comum
+                enemy(self.game, spawn_x_tile, spawn_y_tile)
     def movement(self):
         # A direção é trocada quando colide, não baseada em posição fixa
         self.y_change = self.direction * self.speed
@@ -1366,7 +1459,6 @@ class Nero(pygame.sprite.Sprite):
             self.life -= amount
             self.invulnerable = True
             self.invulnerable_time = pygame.time.get_ticks()
-            print(f"Nero sofreu {amount} de dano! Vida: {self.life}")
 
     def draw_health_bar(self):
         bar_x = self.rect.x
@@ -2075,7 +2167,7 @@ class Seller2NPC(pygame.sprite.Sprite):
         if hasattr(self.game, 'player'):
             colliding = pygame.sprite.collide_rect(self, self.game.player)
             
-            if colliding and not self.shop_active and current_time - self.last_interact_time > 1000:
+            if colliding and not self.shop_active and current_time - self.last_interact_time > 700:
                 self.shop_active = True
                 self.selected_option = 0
                 self.last_interact_time = current_time
