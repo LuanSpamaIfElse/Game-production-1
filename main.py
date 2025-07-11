@@ -30,12 +30,13 @@ class Game:
         self.arrows = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
-        self.bats = pygame.sprite.LayeredUpdates() # Mantido como bats
+        self.bats = pygame.sprite.LayeredUpdates() 
         self.attacks = pygame.sprite.LayeredUpdates()
         self.npcs = pygame.sprite.LayeredUpdates()
         self.water = pygame.sprite.LayeredUpdates()
         self.bosses = pygame.sprite.LayeredUpdates() # Novo grupo para o boss
         self.fire_areas = pygame.sprite.LayeredUpdates() # Novo grupo para áreas de fogo
+        self.shield_spritesheet = Spritesheet('sprt/img/shield.png')
         self.arrows_spritesheet = Spritesheet('sprt/img/arrow_spr.png')
         self.boxer_spritesheet = Spritesheet(PLAYER3_ATTR["animation_sheet"])
         self.boxe_spritesheet = Spritesheet('sprt/img/boxing_glove.png')
@@ -145,7 +146,7 @@ class Game:
                 f"Vida: {current_char['life']} | Dano: {current_char['damage']} | Velocidade: {current_char['speed']}", 
                 True, SELECTED_COLOR  # Amarelo brilhante
             )
-            # Modificado: de panel_y + 290 para panel_y + 300
+            
             self.screen.blit(stats_text, (WIN_WIDTH//2 - stats_text.get_width()//2, panel_y + 320))
             
             desc_text = desc_font.render(current_char["description"], True, UI_FONT_COLOR)  # Branco
@@ -616,6 +617,7 @@ class Game:
                 if isinstance(sprite, Portal):
                     sprite.active = True
                     return
+                    
                     
             # Se não encontrou portal, cria um novo
             if hasattr(self, 'player'):
