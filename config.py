@@ -4,7 +4,7 @@ TILESIZES = 32
 #ENEMY_COUNT = 0
 OBSTACLE_COUNT = 25
 
-
+SHIELD_LAYER = 7
 PLAYER_LAYER = 6
 OBSTACLE_LAYER = 5
 PORTAL_LAYER = 5
@@ -17,7 +17,7 @@ BOSS_LAYER = 4 # Nova camada para o boss
 
 
 #PLAYER_LIFE = 20
-ENEMY_LIFE = 30
+ENEMY_LIFE = 34
 BAT_LIFE = 20
 NERO_LIFE = 120 # Vida do Nero
  # Velocidade do Nero
@@ -101,6 +101,8 @@ ARROW_COOLDOWN = 3500
 BOXING_COOLDOWN = 400
 SHIELD_DURATION = 5000  # 5 segundos em milissegundos
 SHIELD_COOLDOWN = 30000     
+SPECIAL_ARROW_DURATION = 20000  # 20 segundos em milissegundos
+SPECIAL_ARROW_COOLDOWN = 40000  # 40 segundos em milissegundos
 
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
