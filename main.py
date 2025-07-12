@@ -37,6 +37,7 @@ class Game:
         self.bosses = pygame.sprite.LayeredUpdates() # Novo grupo para o boss
         self.fire_areas = pygame.sprite.LayeredUpdates() # Novo grupo para áreas de fogo
         self.shield_spritesheet = Spritesheet('sprt/img/shield.png')
+        self.arrowsSpecial_spritesheet = Spritesheet('sprt/img/arrowSpecial_spr.png')
         self.arrows_spritesheet = Spritesheet('sprt/img/arrow_spr.png')
         self.boxer_spritesheet = Spritesheet(PLAYER3_ATTR["animation_sheet"])
         self.boxe_spritesheet = Spritesheet('sprt/img/boxing_glove.png')
