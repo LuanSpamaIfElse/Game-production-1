@@ -70,7 +70,10 @@ class Player(pygame.sprite.Sprite):
         self.slow_modifier = 0.5  # Reduz a velocidade pela metade na água
         self.is_in_water = False
         self.last_water_damage_time = 0  # Controla se está na água
-
+        # Sistema de flechas especiais para o arqueiro
+        self.special_arrows_active = False
+        self.special_arrows_start_time = 0
+        self.last_special_arrows_time = -SPECIAL_ARROW_COOLDOWN
         # Sistema de cooldown
 
         self.last_attack_time = 0
@@ -83,7 +86,7 @@ class Player(pygame.sprite.Sprite):
         self.shield_active = False
         self.shield_start_time = 0
         self.last_shield_time = -SHIELD_COOLDOWN  # Permite usar imediatamente
-        self.shield_image = self.game.shield_spritesheet.get_sprite(0, 0, 40, 40)
+        self.shield_image = self.game.shield_spritesheet.get_sprite(1, 1, 40, 40)
 
         # Dodge Bar (esquiva)
         self.dodge_cooldown = DODGE_COOLDOWN
@@ -142,6 +145,18 @@ class Player(pygame.sprite.Sprite):
             self.invulnerable_time = pygame.time.get_ticks()
             if self.life <= 0:
                 self.kill()
+    def activate_special_arrows(self):
+        if self.char_type == 'archer' and pygame.time.get_ticks() - self.last_special_arrows_time >= SPECIAL_ARROW_COOLDOWN:
+            self.special_arrows_active = True
+            self.special_arrows_start_time = pygame.time.get_ticks()
+            self.last_special_arrows_time = pygame.time.get_ticks()
+            return True
+        return False
+
+    def update_special_arrows(self):
+        current_time = pygame.time.get_ticks()
+        if self.special_arrows_active and current_time - self.special_arrows_start_time >= SPECIAL_ARROW_DURATION:
+            self.special_arrows_active = False
 
     def activate_shield(self):
         current_time = pygame.time.get_ticks()
@@ -242,6 +257,7 @@ class Player(pygame.sprite.Sprite):
 
     def update(self):
         self.update_shield()
+        self.update_special_arrows()
         self.movement()
         self.animate()
         self.handle_water()
@@ -325,6 +341,10 @@ class Player(pygame.sprite.Sprite):
                 self.last_dodge_time = pygame.time.get_ticks()
                 self.x_change *= self.dodge_speed_multiplier
                 self.y_change *= self.dodge_speed_multiplier
+           
+            elif self.char_type == 'archer':
+                self.activate_special_arrows()
+           
             elif self.char_type == 'boxer':
                 self.activate_shield()
                 
@@ -401,21 +421,15 @@ class Player(pygame.sprite.Sprite):
                         sprite.rect.y -= self.base_speed
 
         
-    def draw(self, surface):
-    # Desenha o jogador
-        surface.blit(self.image, self.rect)
-        
-        # Desenha o escudo se estiver ativo  <--- AQUI ESTÁ A MODIFICAÇÃO 3
-        if self.shield_active:
-            shield_rect = self.shield_image.get_rect(center=self.rect.center)
-            surface.blit(self.shield_image, shield_rect)
-            
-        # Desenha o efeito de água se estiver na água
-        if self.is_in_water:
-            water_radius = self.rect.width // 2
-            water_surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
-            pygame.draw.circle(water_surface, (0, 100, 255, 128), (water_radius, water_radius), water_radius)
-            surface.blit(water_surface, self.rect.topleft)
+    def activate_shield(self):
+        current_time = pygame.time.get_ticks()
+        if self.char_type == 'boxer' and current_time - self.last_shield_time >= SHIELD_COOLDOWN:
+            self.shield_active = True
+            self.shield_start_time = current_time
+            self.last_shield_time = current_time
+            Shield(self.game, self)  # <-- ADICIONE ESTA LINHA para criar o sprite do escudo
+            return True
+        return False
 
 #GROUNDS
             
@@ -1170,6 +1184,12 @@ class AbilityPanel:
             ability_key = self.text_font.render("Escudo [SHIFT]", True, UI_FONT_COLOR)
             surface.blit(ability_key, (self.rect.x + 15, self.rect.y + y_offset))
             self.draw_shield_bar(surface, self.rect.x + 15, self.rect.y + y_offset + 25)
+            #%
+        elif self.game.player.char_type == 'archer':
+            ability_key = self.text_font.render("Flechas Especiais [SHIFT]", True, UI_FONT_COLOR)
+            surface.blit(ability_key, (self.rect.x + 15, self.rect.y + y_offset))
+            self.draw_special_arrows_bar(surface, self.rect.x + 15, self.rect.y + y_offset + 25)
+            #%
         else:
             ability_key = self.text_font.render("Esquiva [SHIFT]", True, UI_FONT_COLOR)
             surface.blit(ability_key, (self.rect.x + 15, self.rect.y + y_offset))
@@ -1181,6 +1201,21 @@ class AbilityPanel:
         surface.blit(self.coin_icon, (self.rect.x + 15, self.rect.y + y_offset + 2))
         coin_text = self.text_font.render(f": {self.game.player.coins}", True, UI_TITLE_COLOR)
         surface.blit(coin_text, (self.rect.x + 35, self.rect.y + y_offset))
+
+    def draw_special_arrows_bar(self, surface, x, y):
+        if not hasattr(self.game.player, 'last_special_arrows_time'):
+            ratio = 0
+        else:
+            elapsed = pygame.time.get_ticks() - self.game.player.last_special_arrows_time
+            ratio = min(elapsed / SPECIAL_ARROW_COOLDOWN, 1.0)
+        
+        self.draw_bar(surface, x, y, ratio, DODGE_READY_COLOR, DODGE_COOLDOWN_COLOR)
+        
+        # Mostra tempo restante das flechas especiais se estiverem ativas
+        if hasattr(self.game.player, 'special_arrows_active') and self.game.player.special_arrows_active:
+            remaining = (SPECIAL_ARROW_DURATION - (pygame.time.get_ticks() - self.game.player.special_arrows_start_time)) / 1000
+            time_text = self.text_font.render(f"{remaining:.1f}s", True, WHITE)
+            surface.blit(time_text, (x + BAR_WIDTH + 10, y))
 
     def draw_shield_bar(self, surface, x, y):
         if not hasattr(self.game.player, 'shield_active'):
@@ -1586,7 +1621,28 @@ class SwordAttack(pygame.sprite.Sprite):
         self.animation_loop += 0.5
         if self.animation_loop >= 2:
             self.kill()
+# Adicione esta classe inteira em sprites.py
+class Shield(pygame.sprite.Sprite):
+    def __init__(self, game, player):
+        self.game = game
+        self.player = player
+        self._layer = SHIELD_LAYER  # Usa a nova camada
+        self.groups = self.game.all_sprites
+        pygame.sprite.Sprite.__init__(self, self.groups)
 
+        # Carrega a imagem do escudo
+        self.image = self.game.shield_spritesheet.get_sprite(1, 1, 40, 40)
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+
+    def update(self):
+        # Se o escudo do jogador não estiver mais ativo, o sprite se destrói
+        if not self.player.shield_active:
+            self.kill()
+            return
+        
+        # Mantém o escudo centralizado no jogador
+        self.rect.center = self.player.rect.center
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, game, x, y, direction):
         self.game = game
@@ -1601,14 +1657,27 @@ class Arrow(pygame.sprite.Sprite):
         self.damage = PLAYER2_ATTR["damage"]
         self.state = 'flying'  # Initial state
         
-        # Load arrow sprites
-        self.flying_sprites = {
-            'up': self.game.arrows_spritesheet.get_sprite(13, 25, 10, 16),
-            'down': self.game.arrows_spritesheet.get_sprite(22, 26, 10, 16),
-            'left': self.game.arrows_spritesheet.get_sprite(25, 0, 14, 10),
-            'right': self.game.arrows_spritesheet.get_sprite(5, 0, 14, 9)
-        }
-        self.fallen_sprite = self.game.arrows_spritesheet.get_sprite(33, 26, 10, 16)
+        # Verifica se são flechas especiais
+        self.is_special = hasattr(self.game.player, 'special_arrows_active') and self.game.player.special_arrows_active
+        
+        # Carrega sprites diferentes para flechas normais e especiais
+        if self.is_special:
+            self.flying_sprites = {
+                'up': self.game.arrowsSpecial_spritesheet.get_sprite(13, 25, 10, 16),
+                'down': self.game.arrowsSpecial_spritesheet.get_sprite(22, 26, 10, 16),
+                'left': self.game.arrowsSpecial_spritesheet.get_sprite(25, 0, 14, 10),
+                'right': self.game.arrowsSpecial_spritesheet.get_sprite(5, 0, 14, 9)
+            }
+            self.fallen_sprite = self.game.arrowsSpecial_spritesheet.get_sprite(33, 26, 10, 16)
+            self.damage *= 1.5  # Dano aumentado para flechas especiais
+        else:
+            self.flying_sprites = {
+                'up': self.game.arrows_spritesheet.get_sprite(13, 25, 10, 16),
+                'down': self.game.arrows_spritesheet.get_sprite(22, 26, 10, 16),
+                'left': self.game.arrows_spritesheet.get_sprite(25, 0, 14, 10),
+                'right': self.game.arrows_spritesheet.get_sprite(5, 0, 14, 9)
+            }
+            self.fallen_sprite = self.game.arrows_spritesheet.get_sprite(33, 26, 10, 16)
         
         # Set initial image based on direction
         self.image = self.flying_sprites[direction]
@@ -1636,7 +1705,32 @@ class Arrow(pygame.sprite.Sprite):
                 self.kill()
 
     def move(self):
+        if self.is_special and self.state == 'flying':
+            # Encontra o inimigo mais próximo
+            closest_enemy = None
+            min_distance = float('inf')
+            
+            # Verifica todos os grupos de inimigos
+            for enemy_group in [self.game.enemies, self.game.bats, self.game.bosses]:
+                for enemy in enemy_group:
+                    dist = math.hypot(enemy.rect.centerx - self.rect.centerx, 
+                                     enemy.rect.centery - self.rect.centery)
+                    if dist < min_distance:
+                        min_distance = dist
+                        closest_enemy = enemy
+            
+            # Se encontrou um inimigo, move em sua direção
+            if closest_enemy and min_distance < 500:  # Alcance de perseguição
+                dx = closest_enemy.rect.centerx - self.rect.centerx
+                dy = closest_enemy.rect.centery - self.rect.centery
+                dist = math.hypot(dx, dy)
+                if dist > 0:
+                    dx, dy = dx / dist, dy / dist
+                    self.rect.x += dx * self.speed
+                    self.rect.y += dy * self.speed
+                    return
         """Move the arrow based on its direction"""
+
         if self.direction == 'up':
             self.rect.y -= self.speed
         elif self.direction == 'down':
@@ -2054,7 +2148,7 @@ class Seller2NPC(pygame.sprite.Sprite):
         self.shop_active = False
         self.selected_option = 0
         self.last_interact_time = 0
-        self.interact_cooldown = 2000 # ms
+        self.interact_cooldown = 500 # ms
         
         self.upgrade_options = [
             {"name": "Restaurar Vida", "cost": 5, "description": "Recupera toda a sua vida.", "effect": self.upgrade_health},
